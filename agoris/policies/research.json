@@ -1,0 +1,41 @@
+{
+  "name": "research",
+  "version": 1,
+  "description": "Der Normalfall einer wissenschaftlichen Aufgabe: Rechenzeit, Speicher, Dateien und genau der Netzweg, den die Aufgabe braucht - alles andere bleibt zu.",
+  "filesystem": {
+    "writable": ["/work", "/tmp"],
+    "max_file_bytes": 1048576,
+    "max_workspace_bytes": 33554432
+  },
+  "process": {
+    "cpu_seconds": 20,
+    "wall_seconds": 120,
+    "memory_mb": 512,
+    "max_processes": 64,
+    "max_open_files": 128,
+    "max_output_bytes": 65536
+  },
+  "network": {
+    "mode": "proxy",
+    "allowed_domains": ["wikipedia.org", "*.wikipedia.org", "arxiv.org", "*.arxiv.org", "example.org"],
+    "blocked_domains": ["metadata.google.internal", "169.254.169.254"],
+    "deny_ports": [22, 23, 25, 445, 3306, 5432, 6379, 11211],
+    "max_bytes_per_task": 2097152,
+    "timeout_seconds": 15
+  },
+  "system": {
+    "namespaces": ["user", "mount", "pid", "net", "ipc", "uts"],
+    "jail_runtime": "minimal"
+  },
+  "tools": {
+    "enabled": ["read_file", "write_file", "list_dir", "run_python", "fetch_url", "finish"]
+  },
+  "model": {
+    "provider": "simulated",
+    "max_steps": 12
+  },
+  "seed_files": {
+    "aufgabe.md": "# Rechercheaufgabe\n\n1. Lies 'frage.md'.\n2. Recherchiere die Antwort ueber eine erlaubte Quelle.\n3. Schreibe die Antwort mit Quellenangabe nach 'bericht.md'.\n",
+    "frage.md": "Welche Schicht in AGORIS haelt den API-Schluessel?\n"
+  }
+}
