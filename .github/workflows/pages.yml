@@ -1,0 +1,97 @@
+name: Website veröffentlichen
+
+# Veröffentlicht die Seite aus website/ auf GitHub Pages.
+# Voraussetzung im Repository: Settings → Pages → Source: "GitHub Actions"
+# Ergebnis: https://noahkafemann.github.io/ai-agent-security/
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - "docs/**"
+      - "agoris/**"
+      - "agoris.py"
+      - "README.md"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+# Pages braucht genau diese beiden Rechte - mehr nicht.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Seite zusammenstellen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inhalt für die Veröffentlichung sammeln
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site/docs
+
+          # Die Seite selbst
+          cp -a website/. _site/
+
+          # Die Dokumentation mit ausliefern, damit die Links aus der
+          # Fusszeile ins Leere zeigen weder hier noch lokal.
+          cp -a docs/. _site/docs/
+
+          # .nojekyll: GitHub soll die Dateien so ausliefern, wie sie sind,
+          # und nicht erst einen Jekyll-Build daraus machen.
+          touch _site/.nojekyll
+
+          echo "--- Inhalt von _site ---"
+          find _site -type f | sort
+          echo "--- Umfang: $(du -sh _site | cut -f1) ---"
+
+      - name: Prüfen, dass die Seite nichts von außen nachlädt
+        run: |
+          set -euo pipefail
+          # Die Seite soll offline und ohne CDN funktionieren. Deshalb darf sie
+          # keine *Ressourcen* nachladen. Verweise auf andere Seiten (href auf
+          # github.com) sind erlaubt - die klickt man ja absichtlich an.
+          fehler=0
+
+          # Bilder, Skripte, Stylesheets, Webfonts aus der Fremde
+          if grep -nE '<(img|script|iframe|video|audio|source)[^>]*src="(https?:)?//' _site/index.html; then
+            fehler=1
+          fi
+          if grep -nE '<link[^>]*href="(https?:)?//' _site/index.html; then
+            fehler=1
+          fi
+          if grep -nE '@import|url\((https?:)?//' _site/*.css; then
+            fehler=1
+          fi
+
+          if [ "$fehler" -ne 0 ]; then
+            echo "FEHLER: Die Seite laedt Ressourcen aus dem Internet nach."
+            echo "       Sie soll vollstaendig offline funktionieren."
+            exit 1
+          fi
+          echo "OK: alle Ressourcen liegen im Repository"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Auf GitHub Pages ausspielen
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Freigeben
+        id: deployment
+        uses: actions/deploy-pages@v4
