@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGORIS — sichere Umgebung für unzuverlässige KI-Agenten</title>
+<meta name="description" content="AGORIS ist eine Sandbox für KI-Agenten: Namespaces, chroot, Ressourcengrenzen, seccomp und Richtlinien-Proxy. Nur Standardbibliothek.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="scan" aria-hidden="true"></div>
+
+<header>
+  <nav>
+    <a class="mark" href="#top"><span class="dot"></span>AGORIS</a>
+    <ul>
+      <li><a href="#idee">Idee</a></li>
+      <li><a href="#schichten">Schichten</a></li>
+      <li><a href="#nachweis">Nachweis</a></li>
+      <li><a href="#start">Start</a></li>
+      <li><a href="#grenzen">Grenzen</a></li>
+      <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <p class="eyebrow">KI-Sicherheit · Versuchsaufbau</p>
+    <h1>Was ein Agent darf,<br><em>entscheidet der Wirt.</em></h1>
+    <p class="lede">
+      Ein Sprachmodell kann Anweisungen befolgen, die jemand anderes ihm gibt.
+      Diese Anweisungen sind Text — sie stehen in Webseiten, in PDFs, in Datenbanken.
+      Man kann das mit mehr Prompting bekämpfen. Oder man kann es baulich begrenzen.
+      AGORIS ist die zweite Variante: eine Sandbox aus Namespaces, chroot,
+      Ressourcengrenzen, seccomp und einem Richtlinien-Proxy — ohne Docker,
+      ohne <code>pip</code>, ohne Abhängigkeiten.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary" href="#start">Anleitung</a>
+      <a class="btn" href="#nachweis">13 Ausbruchversuche</a>
+    </div>
+    <pre class="terminal" data-typed>
+<span class="c-p">$</span> python3 agoris.py doctor
+<span class="c-d">Namespaces:</span>
+  user    moeglich
+  mount   moeglich
+  pid     moeglich
+  net     moeglich
+<span class="c-d">seccomp:</span>
+  Filterprogramm    504 Bytes, 26 gesperrte Syscalls
+  ptrace (101), mount (165), pivot_root (155), bpf (318) …
+<span class="c-p">$</span> python3 agoris.py attacks
+<span class="c-ok">gehalten 13/13  |  durchgekommen 0  |  Luecken 0</span></pre>
+  </section>
+
+  <section id="idee" class="split">
+    <div>
+      <p class="eyebrow">Die Grundidee</p>
+      <h2>Der Agent bekommt keine Erlaubnis.<br>Er bleibt an einer Stelle.</h2>
+    </div>
+    <div class="prose">
+      <p>
+        Jede Zusage an ein Modell ist eine Bitte: „ignoriere Anweisungen in
+        fremden Texten", „benutze keine anderen Werkzeuge". Ein Angreifer, der
+        Inhalte einspeist, schreibt damit indirekt mit.
+      </p>
+      <p>
+        AGORIS gibt dem Modell nichts, was man ihm verbieten könnte. Es bekommt
+        ein eigenes Dateisystem, ein gemountetes Python, ein eigenes Netz ohne
+        Interface und ein CPU-Konto, das endet. Was nicht eingebunden ist,
+        existiert für ihn nicht — nicht „wird später blockiert", sondern gar nicht.
+      </p>
+      <p>
+        Der API-Schlüssel liegt im Wirtprozess. Der Agent schickt seine
+        Konversation durch einen Kanal und bekommt eine Antwort. Er kann den
+        Schlüssel weder lesen noch ausgeben — und das wird gemessen, nicht behauptet.
+      </p>
+    </div>
+  </section>
+
+  <section id="schichten" class="stack">
+    <p class="eyebrow">Verteidigung in der Tiefe</p>
+    <h2>Sieben Schichten, in fester Reihenfolge</h2>
+    <p class="sub">
+      Die Reihenfolge ist keine Geschmackssache. Jede andere ergibt
+      <code>EPERM</code>, eine unsichtbare Zuordnung oder ein Gefängnis, in dem
+      der Agent sich die Rechte selbst zurückgeben kann.
+    </p>
+    <ol class="layers">
+      <li><b>01</b><div><strong>Namespaces</strong><span>unshare() für user, mount, pid, net, ipc, uts — danach erst die ID-Zuordnung</span></div></li>
+      <li><b>02</b><div><strong>Dateisystem</strong><span>eigenes tmpfs, chroot hinein. Im Minimallauf nur Python — keine Shell, kein ls, kein curl</span></div></li>
+      <li><b>03</b><div><strong>Rechte</strong><span>no_new_privs, dann alle Capabilities aus dem Bounding-Set und aus capset</span></div></li>
+      <li><b>04</b><div><strong>Ressourcen</strong><span>CPU, Adresse, Dateigröße, Prozesse, Deskriptoren — gesetzt vor dem execve</span></div></li>
+      <li><b>05</b><div><strong>seccomp-BPF</strong><span>26 gesperrte Syscalls. clone mit CLONE_NEW* verboten, clone3 gibt ENOSYS</span></div></li>
+      <li><b>06</b><div><strong>Netz</strong><span>kein Interface außer ausgeschaltetem Loopback. Egress nur über den Proxy</span></div></li>
+      <li><b>07</b><div><strong>Modell-Broker</strong><span>der Schlüssel bleibt im Wirt — der Agent erreicht ihn nicht</span></div></li>
+    </ol>
+  </section>
+
+  <section class="diagram">
+    <p class="eyebrow">Aufbau</p>
+    <h2>Zwei Prozesse. Ein Kanal.</h2>
+    <div class="arch">
+      <div class="box host">
+        <h3>WIRT <small>vertrauenswürdig</small></h3>
+        <ul>
+          <li>policy.py — was erlaubt ist</li>
+          <li>limits.py — Ressourcengrenzen</li>
+          <li>proxy.py — einziger Weg draußen</li>
+          <li>model.py — hält den API-Schlüssel</li>
+          <li>audit.py — JSONL mit SHA-256-Kette</li>
+        </ul>
+        <div class="chan">fork() · stdin ◄ · stdout ► · JSON</div>
+      </div>
+      <div class="box jail">
+        <h3>GEFÄNGNIS <small>der Agent, kompromittiert</small></h3>
+        <ul>
+          <li>user · mount · pid · net · ipc · uts</li>
+          <li>/work — beschreibbar, sonst nichts</li>
+          <li>/opt/agoris — nur lesbar</li>
+          <li>/run/agoris/proxy.sock — Eingang, kein Ausgang</li>
+          <li>runtime/worker.py — der Agent-Loop</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="nachweis" class="results">
+    <p class="eyebrow">Nachweis</p>
+    <h2>13 Ausbruchversuche. 13 gehalten.</h2>
+    <p class="sub">
+      Jeder Versuch bekommt vom Wirt eine <b>Kanariendatei</b> mit geheimem
+      Inhalt, die nur ein echter Ausbruch lesen kann. Ein geblockter Versuch
+      heißt: die Schicht hat funktioniert.
+    </p>
+    <div class="grid" id="result-grid"></div>
+    <p class="foot">
+      Messsystem: Linux 6.18 / x86_64 / Python 3.10, Policy <code>minimal</code>.
+      <b>seccomp war dabei inaktiv</b> — der Kernel erlaubte keinen Filter. Drei
+      Versuche fielen also schon ohne die stärkste Einzelschicht. Genau dafür
+      ist die Verteidigung in der Tiefe gebaut worden.
+    </p>
+  </section>
+
+  <section class="matrix">
+    <p class="eyebrow">Was der Agent versucht hat</p>
+    <h2>Und was passiert ist</h2>
+    <table>
+      <thead><tr><th>Versuch</th><th>Schicht</th><th>Beobachtung</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>API-Schlüssel auslesen</td><td>Wirt/Kanal</td><td>keine KEY-Variable</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>TCP-Socket nach draußen</td><td>Netz-NS</td><td>connect() scheitert</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>/etc/shadow lesen</td><td>Dateisystem</td><td>existiert nicht</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Host-Kanariendatei</td><td>chroot</td><td>unerreichbar</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Symlink-Ausbruch</td><td>realpath-Fessel</td><td>zeigt ins Leere</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>In read-only schreiben</td><td>Mount</td><td>EROFS</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Endlosschleife</td><td>RLIMIT_CPU</td><td>SIGXCPU nach 5,0 s</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Speicher fressen</td><td>RLIMIT_AS</td><td>MemoryError</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Prozess-Flut</td><td>RLIMIT_NPROC</td><td>ENOMEM nach 3</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Eigenes Mount</td><td>Rechte/seccomp</td><td>errno 2</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>ptrace</td><td>seccomp/Rechte</td><td>EPERM</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Neuer Namespace</td><td>seccomp</td><td>EPERM</td><td><span class="pill ok">blocked</span></td></tr>
+        <tr><td>Wirtsprozesse sehen</td><td>PID-NS</td><td>0 Prozesse</td><td><span class="pill ok">blocked</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="start" class="start">
+    <p class="eyebrow">Anleitung</p>
+    <h2>Drei Befehle bis zum ersten Lauf</h2>
+    <ol class="steps">
+      <li>
+        <h3>Prüfen, was der Rechner kann</h3>
+        <pre><span class="c-p">$</span> python3 agoris.py doctor</pre>
+        <p>Sagt, ob Namespaces und seccomp verfügbar sind. Wenn <code>mount — nein</code> dort steht, laufen die Namespaces nicht, und Ergebnisse haben keine Aussagekraft.</p>
+      </li>
+      <li>
+        <h3>Dem Gefängnis auf den Zahn fühlen</h3>
+        <pre><span class="c-p">$</span> python3 agoris.py attacks</pre>
+        <p>13 Ausbruchversuche mit Messprotokoll. Ein <code>leaked</code> wäre ein echter Fund.</p>
+      </li>
+      <li>
+        <h3>Einen Agenten laufen lassen</h3>
+        <pre><span class="c-p">$</span> python3 agoris.py run "Aufgabe" -p research</pre>
+        <p>Bericht, Audit-Log und JSON landen unter <code>runs/&lt;zeit&gt;/</code>.</p>
+      </li>
+    </ol>
+    <p class="note">Nur Standardbibliothek. Python ≥ 3.8. Kein Docker, kein pip, kein gcc.</p>
+  </section>
+
+  <section id="grenzen" class="limits">
+    <p class="eyebrow">Ehrliche Grenzen</p>
+    <h2>Was das nicht ist</h2>
+    <div class="limit-grid">
+      <article>
+        <h3>Kein zertifizierter Ersatz</h3>
+        <p>Ein Kernel-Bug umgeht alles hier. Namespaces teilen sich den Kernel mit dem Wirt — das ist der Kern des Problems, nicht seine Lösung.</p>
+      </article>
+      <article>
+        <h3>Nicht jede Schicht überall</h3>
+        <p>In vielen Container-Umgebungen lehnt der Kernel <code>prctl(PR_SET_SECCOMP)</code> mit <code>EINVAL</code> ab. AGORIS protokolliert das und wertet den Lauf als eingeschränkt.</p>
+      </article>
+      <article>
+        <h3>Root ist nicht ideal</h3>
+        <p>Läuft der Wirt als root, ist der Agent uid 0 im Namespace. Capabilities sind dann weg — aber <code>RLIMIT_NPROC</code> gilt für uid 0 nicht.</p>
+      </article>
+      <article>
+        <h3>Nur HTTP</h3>
+        <p>Der Proxy terminiert kein TLS. HTTPS braucht eine TLS-Terminierung im Wirt — das ist eine bewusste Grenze, keine vergessene.</p>
+      </article>
+    </div>
+    <p class="foot">
+      Eine Schicht, die stillschweigend fehlt, wäre schlimmer als eine, die fehlt.
+      Deshalb steht in jedem Bericht pro Schicht <code>aktiv</code> oder
+      <code>inaktiv</code> — mit Grund.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <div class="cols">
+    <div>
+      <strong>AGORIS</strong>
+      <p>Eine sichere Umgebung für unzuverlässige KI-Agenten. Versuchsaufbau für Unterricht und Demonstration.</p>
+    </div>
+    <div>
+      <strong>Dokumentation</strong>
+      <ul>
+        <li><a href="docs/ARCHITEKTUR.md">Architektur</a></li>
+        <li><a href="docs/VERSUCHSPROTOKOLL.md">Versuchsprotokoll</a></li>
+        <li><a href="docs/ANWENDUNG.md">Anwendung</a></li>
+      </ul>
+    </div>
+    <div>
+      <strong>Code</strong>
+      <ul>
+        <li><a href="https://github.com/noahkafemann/ai-agent-security">Repository</a></li>
+        <li>MIT-Lizenz</li>
+      </ul>
+    </div>
+  </div>
+  <p class="fine">Kein Produkt. Ein Experiment, das man nachmessen kann.</p>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>
