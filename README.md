@@ -20,6 +20,54 @@ Alles über Standardbibliothek. Python ≥ 3.8. Kein Docker, kein `pip`, kein `g
 
 ---
 
+## Du hast Windows? Dann lies das zuerst
+
+AGORIS nutzt Linux-Funktionen des Kernels — `unshare()`, `chroot()`,
+`setrlimit()`, `seccomp`. **Unter Windows gibt es davon keine einzige.** Deshalb
+läuft AGORIS dort nicht, und das Programm sagt dir das auch sofort und sauber:
+
+```
+AGORIS laeuft nicht unter Windows.
+
+Gefunden wurde: win32
+
+AGORIS braucht Linux-Funktionen des Kernels. Unter Windows gibt es sie
+nicht - das ist keine Einstellungsfrage, sondern eine Eigenschaft des
+Betriebssystems. Was fehlen wuerde:
+
+  unshare()      eigene Prozesse, Dateien und Netze fuer den Agenten (Namespaces)
+  chroot()       eigenes Dateisystem - der Agent sieht keine Wirtsdatei
+  setrlimit()    Grenzen fuer Rechenzeit, Speicher, Dateigroesse, Prozesse
+  seccomp        Syscall-Sperrliste: verbietet ptrace, mount, kexec_load, ...
+  mount()        bindet Dateien nur lesbar ein
+```
+
+**Der Weg nach Linux, in aufsteigender Reihenfolge:**
+
+| Weg | Aufwand | Für |
+|---|---|---|
+| **WSL2** — in PowerShell `wsl --install`, dann Ubuntu öffnen | klein | die meisten Schulfälle |
+| Linux-VM (VirtualBox + Ubuntu-ISO) | mittel | wenn WSL2 nicht verfügbar ist |
+| Linux-Server in der Schulumgebung | keiner | wenn einer vorhanden ist |
+
+In WSL2 geht es so weiter:
+
+```bash
+# PowerShell (einmalig):
+wsl --install
+
+# danach das WSL-Terminal öffnen und dort:
+sudo apt update && sudo apt install -y git python3
+cd ~/ai-agent-security        # bzw. den Ordner unter /mnt/c/Users/...
+python3 agoris.py doctor
+```
+
+Was danach gilt, sagt `doctor`: In WSL2 funktionieren die Namespaces meistens,
+manche Schichten sind je nach Kernel eingeschränkt. **Verlass dich auf `doctor`,
+nicht auf meine Einschätzung** — es misst deinen Rechner, nicht den Durchschnitt.
+
+---
+
 ## Die Website
 
 🌐 **<https://noahkafemann.github.io/ai-agent-security/>**
@@ -172,7 +220,7 @@ Genau darum gibt es diesen Befehl.
 
 | Was | Anforderung | Ab wann | Wie prüfen |
 |---|---|---|---|
-| Betriebssystem | Linux | Kernel 3.8 | `uname -s` |
+| Betriebssystem | **Linux** (Windows: siehe oben) | Kernel 3.8 | `uname -s` |
 | Python | ≥ 3.8 | 2019 | `python3 -V` |
 | User-Namespaces | eingeschaltet | Kernel 3.8 | `unshare -Ur true` |
 | Procfs-Mount | darf nicht verboten sein | Kernel 3.8 | siehe `doctor` |
@@ -703,8 +751,25 @@ agoris/
     tools.py            Werkzeuge und Pfad-Fessel
     protocol.py         der einzige Kanal nach draußen
 docs/                   Architektur, Versuchsprotokoll, Anwendung
+tools/                  Werkzeuge für die Website, ohne Fremdbibliotheken
 website/                statische Seite (index.html öffnen, genügt)
 ```
+
+### Wenn sich `docs/` ändert
+
+Die Website liegt als HTML vor, weil GitHub Pages Markdown als reinen Text
+ausliefert — man sähe eine Wand aus Sternchen und Pipe-Zeichen. Damit die Seite
+auch aus einem frischen Klon heraus funktioniert, liegt diese HTML-Fassung
+eingecheckt unter `website/docs/`. **Beides muss zusammenpassen:**
+
+```bash
+python3 tools/selbsttest.py                                  # prüft beides
+python3 tools/md2html.py docs/*.md -o website/docs          # nachziehen
+python3 tools/check_links.py website --mit-doku-drift        # kontrollieren
+```
+
+Ohne den zweiten Schritt prüft `tools/selbsttest.py` die eingecheckte Fassung
+gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 
 ### Alle Befehle auf einen Blick
 
@@ -712,6 +777,7 @@ website/                statische Seite (index.html öffnen, genügt)
 |---|---|
 | `python3 agoris.py` | Demo-Lauf mit Policy `minimal` |
 | `python3 agoris.py doctor` | Fähigkeiten des Rechners prüfen |
+| `python3 agoris.py` | unter Windows: klare Meldung statt Absturz (Exit-Code 3) |
 | `python3 agoris.py inspect` | Innenansicht des Käfigs |
 | `python3 agoris.py policies` | verfügbare Policies |
 | `python3 agoris.py show <name>` | Policy im Detail |

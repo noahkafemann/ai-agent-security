@@ -20,7 +20,6 @@ uebersprungen):
 from __future__ import annotations
 
 import ctypes
-import fcntl
 import os
 import shutil
 import socket
@@ -30,6 +29,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from . import limits as limits_mod
 from . import seccomp as seccomp_mod
+
+try:  # nur unter Unix; unter Windows gibt es kein fcntl
+    import fcntl
+except ImportError:  # pragma: no cover - Windows
+    fcntl = None
 
 libc = ctypes.CDLL("libc.so.6", use_errno=True)
 
@@ -425,6 +429,8 @@ def setup_filesystem(
 # ------------------------------------------------------------------ Schritt 4
 def bring_up_loopback() -> Dict[str, Any]:
     """Im Netz-Namespace gibt es ein loopback - es ist nur ausgeschaltet."""
+    if fcntl is None:
+        return {"active": False, "reason": "ioctl nicht verfuegbar (kein fcntl)"}
     if not os.path.exists("/sys/class/net/lo"):
         return {"active": False, "reason": "kein Loopback-Geraet"}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

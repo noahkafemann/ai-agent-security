@@ -9,8 +9,12 @@ das ist der wichtigste Schutz gegen "die Festplatte zfuellen".
 
 from __future__ import annotations
 
-import resource
 from typing import Any, Dict, List, Tuple
+
+try:  # nur unter Unix; unter Windows gibt es kein resource-Modul
+    import resource
+except ImportError:  # pragma: no cover - Windows
+    resource = None
 
 MB = 1024 * 1024
 
@@ -20,6 +24,13 @@ def apply(process_policy: Dict[str, Any]) -> Dict[str, Any]:
 
     Rueckgabe: ein Protokoll-Dict mit den gesetzten Werten fuer das Audit-Log.
     """
+    if resource is None:  # pragma: no cover - Windows
+        return {
+            "active": False,
+            "reason": "resource-Modul fehlt - setrlimit gibt es nur unter Unix",
+            "applied": [],
+            "not_applied": ["RLIMIT_CPU", "RLIMIT_AS", "RLIMIT_FSIZE", "RLIMIT_NPROC", "RLIMIT_NOFILE", "RLIMIT_CORE"],
+        }
     mem_bytes = int(process_policy.get("memory_mb", 256)) * MB
     nofile = int(process_policy.get("max_open_files", 128))
     fsize = int(process_policy.get("max_file_bytes", 1 * MB))
@@ -84,6 +95,8 @@ def current() -> Dict[str, int]:
         "RLIMIT_CORE",
     ]
     out: Dict[str, int] = {}
+    if resource is None:  # pragma: no cover - Windows
+        return out
     for name in names:
         key = getattr(resource, name, None)
         if key is None:

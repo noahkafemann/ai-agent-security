@@ -569,3 +569,87 @@ footer {
 @media (max-width: 900px) {
   .expect { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------ erklärte Code-Abschnitte */
+details.peek {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--panel), rgba(8, 11, 19, 0.5));
+  max-width: 760px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+details.peek > summary {
+  cursor: pointer;
+  padding: 15px 22px;
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  background: rgba(53, 224, 232, 0.05);
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+details.peek > summary::-webkit-details-marker { display: none; }
+details.peek > summary::before { content: "▸ "; color: var(--muted); }
+details.peek[open] > summary::before { content: "▾ "; }
+details.peek > summary:hover { background: rgba(53, 224, 232, 0.1); }
+
+.peek-note {
+  margin: 0;
+  padding: 16px 22px 0;
+  font-size: 14.5px;
+  color: var(--muted);
+}
+.peek-note b { color: var(--text); }
+
+dl.legend { margin: 0; padding: 6px 22px 24px; }
+dl.legend dt {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--cyan);
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(31, 44, 64, 0.9);
+}
+dl.legend dd { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+dl.legend dd b { color: var(--text); }
+
+/* Rohausgabe: erst aufklappen, wenn man sie wirklich sehen will */
+details.roh {
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  margin-top: 20px;
+  background: rgba(255, 255, 255, 0.015);
+}
+details.roh > summary {
+  cursor: pointer;
+  padding: 11px 16px;
+  font-size: 13px;
+  font-family: var(--mono);
+  color: var(--dim);
+  list-style: none;
+}
+details.roh > summary::-webkit-details-marker { display: none; }
+details.roh > summary::before { content: "▸ "; }
+details.roh[open] > summary::before { content: "▾ "; }
+details.roh > summary:hover { color: var(--muted); }
+details.roh pre {
+  margin: 0;
+  border: none;
+  border-top: 1px dashed var(--line-2);
+  border-radius: 0 0 10px 10px;
+  box-shadow: none;
+}
+
+ul.mess { list-style: none; margin: 0; padding: 0; }
+ul.mess li {
+  padding: 12px 0;
+  border-bottom: 1px dashed rgba(31, 44, 64, 0.8);
+}
+ul.mess li:last-of-type { border-bottom: none; }
+ul.mess b { display: block; font-size: 14.5px; color: var(--text); margin-bottom: 3px; }
+ul.mess span { display: block; font-size: 14px; color: var(--muted); }
+
+.expect .col h4 + ul.mess { margin-top: 0; }

@@ -42,7 +42,14 @@
       <a class="btn primary" href="#start">Anleitung</a>
       <a class="btn" href="#nachweis">14 Ausbruchversuche</a>
     </div>
-    <pre class="terminal" data-typed>
+    <details class="peek" open>
+      <summary>So sieht es auf einem echten Rechner aus</summary>
+      <p class="peek-note">
+        Unten steht <b>echte Ausgabe</b> von zwei Befehlen — keine Illustration.
+        Spielst du es selbst nach, sollte Ähnliches stehen. Was die Zeilen
+        bedeuten, steht darunter.
+      </p>
+      <pre class="terminal" data-typed>
 <span class="c-p">$</span> python3 agoris.py doctor
 <span class="c-d">Namespaces:</span>
   user    moeglich
@@ -54,6 +61,27 @@
   ptrace (101), mount (165), pivot_root (155), bpf (318) …
 <span class="c-p">$</span> python3 agoris.py attacks
 <span class="c-ok">gehalten 14/14  |  durchgekommen 0  |  Luecken 0</span></pre>
+      <dl class="legend">
+        <dt>user · mount · pid · net</dt>
+        <dd>Die vier <b>Sichtweisen</b>, in die der Agent eingesperrt wird: eigene
+            Benutzerrechte, eigenes Dateisystem, eigene Prozesse, eigenes Netz.
+            <b>moeglich</b> heißt: dein Rechner kann das. Steht dort
+            <b>nein</b>, taugt jede Messung auf diesem Rechner nichts.</dd>
+
+        <dt>Filterprogramm 504 Bytes, 26 gesperrte Syscalls</dt>
+        <dd>Die Liste der <b>verbotenen Systemaufrufe</b>. <code>ptrace</code>
+            (sich an fremde Prozesse andocken), <code>mount</code> (eigene
+            Dateisysteme bauen), <code>pivot_root</code> (aus dem Käfig
+            ausbrechen), <code>bpf</code> (Kernel-Programme schreiben). Diese
+            Zeile sagt nur, dass die Liste gebaut wurde — ob der Kernel sie
+            annimmt, steht weiter unten im Bericht.</dd>
+
+        <dt>gehalten 14/14</dt>
+        <dd>14 Versuche, aus dem Käfig auszubrechen. <b>Alle 14 sind
+            gescheitert.</b> <b>durchgekommen 0</b> ist das eigentliche Ergebnis
+            — eine Zahl ungleich 0 wäre ein Loch in der Anlage.</dd>
+      </dl>
+    </details>
   </section>
 
   <section id="idee" class="split">
@@ -188,8 +216,17 @@
         </ul>
       </div>
       <div class="col">
-        <h4>Messung (Auszug)</h4>
-<pre>{
+        <h4>Was der Befehl misst</h4>
+        <ul class="mess">
+          <li><b>Was steckt in <code>/usr/bin</code>?</b><span>Liste der Programme, die der Agent starten kann. Nur <code>python3</code> heißt: keine Shell, kein <code>ls</code>, kein <code>curl</code>.</span></li>
+          <li><b>Wo darf er schreiben?</b><span>Der Befehl versucht, in fünf Ordnern eine Datei anzulegen und meldet das Ergebnis. Nur <code>/work</code> und <code>/tmp</code> dürfen.</span></li>
+          <li><b>Was ist nicht vorhanden?</b><span>Prüft, ob Passwortdateien und Wirtspfade des Wirts im Käfig liegen. Sie dürfen nicht.</span></li>
+          <li><b>Sieht er Geheimnisse?</b><span>Sucht die Umgebung nach Variablen mit <code>KEY</code>, <code>TOKEN</code>, <code>SECRET</code>. Die Liste muss leer sein.</span></li>
+          <li><b>Kommt er ins Netz?</b><span>Versucht eine echte Verbindung. <code>Network is unreachable</code> ist das gewünschte Ergebnis.</span></li>
+        </ul>
+        <details class="roh">
+          <summary>Rohausgabe ansehen</summary>
+          <pre>{
   "4_inhalt_von_/usr_bin": ["python3"],
   "7_wo_darf_geschrieben_werden": {
     "/work/probe.txt":       "BESCHREIBBAR",
@@ -199,6 +236,7 @@
   "10_geheimnisse_sichtbar": [],
   "12_internetzugriff": "Network is unreachable"
 }</pre>
+        </details>
       </div>
     </div>
     <p class="foot">Weicht eine Stelle ab, ist die Anlage nicht richtig aufgesetzt — und genau das sollst du sehen.</p>
@@ -266,9 +304,10 @@
     <div>
       <strong>Dokumentation</strong>
       <ul>
-        <li><a href="docs/ARCHITEKTUR.md">Architektur</a></li>
-        <li><a href="docs/VERSUCHSPROTOKOLL.md">Versuchsprotokoll</a></li>
-        <li><a href="docs/ANWENDUNG.md">Anwendung</a></li>
+        <li><a href="docs/index.html">Übersicht</a></li>
+        <li><a href="docs/ARCHITEKTUR.html">Architektur</a></li>
+        <li><a href="docs/VERSUCHSPROTOKOLL.html">Versuchsprotokoll</a></li>
+        <li><a href="docs/ANWENDUNG.html">Anwendung</a></li>
       </ul>
     </div>
     <div>

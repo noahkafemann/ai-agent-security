@@ -10,13 +10,13 @@ on:
     paths:
       - "website/**"
       - "docs/**"
+      - "tools/**"
       - "agoris/**"
       - "agoris.py"
       - "README.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
-# Pages braucht genau diese beiden Rechte - mehr nicht.
 permissions:
   contents: read
   pages: write
@@ -33,6 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Werkzeuge prüfen
+        # Erst die Werkzeuge, dann ihr Ergebnis benutzen. Ein Fehler hier
+        # bedeutet, dass die Seite stillschweigend kaputt wäre.
+        run: python3 tools/selbsttest.py
+
       - name: Inhalt für die Veröffentlichung sammeln
         run: |
           set -euo pipefail
@@ -42,43 +47,38 @@ jobs:
           # Die Seite selbst
           cp -a website/. _site/
 
-          # Die Dokumentation mit ausliefern, damit die Links aus der
-          # Fusszeile ins Leere zeigen weder hier noch lokal.
-          cp -a docs/. _site/docs/
+          # Die Dokumentation als HTML. Ohne diesen Schritt liefert Pages die
+          # .md-Dateien als reinen Text aus - man klickt auf einen Link und
+          # sieht eine Wand aus Sternchen und Pipe-Zeichen.
+          python3 tools/md2html.py docs/*.md -o _site/docs
 
-          # .nojekyll: GitHub soll die Dateien so ausliefern, wie sie sind,
-          # und nicht erst einen Jekyll-Build daraus machen.
           touch _site/.nojekyll
 
           echo "--- Inhalt von _site ---"
           find _site -type f | sort
           echo "--- Umfang: $(du -sh _site | cut -f1) ---"
 
-      - name: Prüfen, dass die Seite nichts von außen nachlädt
+      - name: Rohes Markdown entfernen
         run: |
           set -euo pipefail
-          # Die Seite soll offline und ohne CDN funktionieren. Deshalb darf sie
-          # keine *Ressourcen* nachladen. Verweise auf andere Seiten (href auf
-          # github.com) sind erlaubt - die klickt man ja absichtlich an.
-          fehler=0
+          # Wenn die Umwandlung fehlschlaegt, darf nicht ungemerkterweise eine
+          # rohe Markdown-Datei ausgeliefert werden.
+          for datei in ARCHITEKTUR VERSUCHSPROTOKOLL ANWENDUNG; do
+            if [ ! -s "_site/docs/$datei.html" ]; then
+              echo "FEHLER: _site/docs/$datei.html fehlt oder ist leer."
+              exit 1
+            fi
+          done
+          rm -f _site/docs/*.md
 
-          # Bilder, Skripte, Stylesheets, Webfonts aus der Fremde
-          if grep -nE '<(img|script|iframe|video|audio|source)[^>]*src="(https?:)?//' _site/index.html; then
-            fehler=1
-          fi
-          if grep -nE '<link[^>]*href="(https?:)?//' _site/index.html; then
-            fehler=1
-          fi
-          if grep -nE '@import|url\((https?:)?//' _site/*.css; then
-            fehler=1
-          fi
+      - name: Seite prüfen
+        run: python3 tools/check_links.py _site
 
-          if [ "$fehler" -ne 0 ]; then
-            echo "FEHLER: Die Seite laedt Ressourcen aus dem Internet nach."
-            echo "       Sie soll vollstaendig offline funktionieren."
-            exit 1
-          fi
-          echo "OK: alle Ressourcen liegen im Repository"
+      - name: Eingecheckte Dokumentation prüfen
+        # Die HTML-Kopie unter website/docs/ muss zu docs/*.md passen. Sonst
+        # zeigt die Seite aus dem Repository etwas anderes als die veroeffent-
+        #lichte. Erst an dieser Stelle auffallen - nicht erst bei einem Leser.
+        run: python3 tools/check_links.py website --mit-doku-drift
 
       - uses: actions/upload-pages-artifact@v3
         with:
