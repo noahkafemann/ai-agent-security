@@ -20,6 +20,36 @@ Alles über Standardbibliothek. Python ≥ 3.8. Kein Docker, kein `pip`, kein `g
 
 ---
 
+## Die Website
+
+🌐 **<https://noahkafemann.github.io/ai-agent-security/>**
+
+Dieselbe Seite liegt in diesem Repository unter [`website/`](website/) —
+dort kannst du sie ohne Internet öffnen: `website/index.html` im Browser
+anklicken. Sie lädt nichts von außen nach und funktioniert offline.
+
+Die Seite wird von einem Workflow auf GitHub Pages gelegt
+(`.github/workflows/pages.yml`). Für die Veröffentlichung sind **zwei
+Einstellungen** nötig, weil beide nur der Repository-Inhaber vornehmen kann:
+
+| Schritt | Wo | Was |
+|---|---|---|
+| 1 | `Settings` → `General` → ganz unten `Danger Zone` | `Change visibility` → `Public` |
+| 2 | `Settings` → `Pages` → `Build and deployment` | Source: **`GitHub Actions`** |
+
+Warum Schritt 1 nötig ist: GitHub Pages gibt es für private Repositories nur in
+GitHub Enterprise. Solange das Repository privat ist, antwortet der Freigabe-Schritt
+mit `Not Found — Ensure GitHub Pages has been enabled`.
+
+Danach **einmal** unter `Actions` → `Website veröffentlichen` → `Re-run all jobs`
+anklicken. Oder irgendeine Änderung nach `main` pushen — dann läuft der Workflow von
+selbst. Die Seite ist danach unter der Adresse oben erreichbar.
+
+*Offenlegung:* Das Repository war zum Zeitpunkt der Messung privat, der Link oben
+war also noch nicht erreichbar. Die Adresse ist die, die GitHub daraus macht.
+
+---
+
 ## Das Problem
 
 Stell dir vor, du lässt eine KI im Internet suchen. Sie findet eine Webseite, und
