@@ -751,8 +751,25 @@ agoris/
     tools.py            Werkzeuge und Pfad-Fessel
     protocol.py         der einzige Kanal nach draußen
 docs/                   Architektur, Versuchsprotokoll, Anwendung
+tools/                  Werkzeuge für die Website, ohne Fremdbibliotheken
 website/                statische Seite (index.html öffnen, genügt)
 ```
+
+### Wenn sich `docs/` ändert
+
+Die Website liegt als HTML vor, weil GitHub Pages Markdown als reinen Text
+ausliefert — man sähe eine Wand aus Sternchen und Pipe-Zeichen. Damit die Seite
+auch aus einem frischen Klon heraus funktioniert, liegt diese HTML-Fassung
+eingecheckt unter `website/docs/`. **Beides muss zusammenpassen:**
+
+```bash
+python3 tools/selbsttest.py                                  # prüft beides
+python3 tools/md2html.py docs/*.md -o website/docs          # nachziehen
+python3 tools/check_links.py website --mit-doku-drift        # kontrollieren
+```
+
+Ohne den zweiten Schritt prüft `tools/selbsttest.py` die eingecheckte Fassung
+gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 
 ### Alle Befehle auf einen Blick
 
