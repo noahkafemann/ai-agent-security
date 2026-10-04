@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anwendung</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<article>
+<h1>Anwendung</h1>
+<h2>Installation</h2>
+<p>Es gibt nichts zu installieren. Repository klonen, <code>python3</code> aufrufen:</p>
+<pre><code class="language-bash">git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
+python3 agoris.py doctor</code></pre>
+<p>Voraussetzung: Linux mit Python ≥ 3.8. Für die volle Wirkung sollten die Namespaces verfügbar sein (<code>doctor</code> sagt das).</p>
+<h2>Erste Schritte</h2>
+<pre><code class="language-bash">python3 agoris.py run &quot;Lies &#x27;aufgabe.md&#x27; und fasse zusammen.&quot;   # Demo
+python3 agoris.py show research                                  # Policy ansehen
+python3 agoris.py attacks                                        # 13 Versuche
+python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen</code></pre>
+<p>Ein Lauf landet in <code>runs/&lt;zeitstempel&gt;-&lt;policy&gt;/</code>:</p>
+<table><thead><tr><th>Datei</th><th>Inhalt</th></tr></thead><tbody><tr><td><code>audit.jsonl</code></td><td>jedes Ereignis mit Hashkette</td></tr><tr><td><code>bericht.md</code></td><td>lesbarer Bericht</td></tr><tr><td><code>bericht.json</code></td><td>dasselbe für Skripte</td></tr><tr><td><code>jail/</code></td><td>das aufgebaute Gefängnis-Dateisystem</td></tr><tr><td><code>payload/agoris/</code></td><td>Kopie der Runtime (read-only eingebunden)</td></tr></tbody></table>
+<h2>Eigene Aufgaben</h2>
+<p>Eine Aufgabe ist eine Textdatei. Für <code>research</code> ist <code>/work</code> vorbelegt mit <code>aufgabe.md</code>, <code>frage.md</code>, <code>notizen.txt</code>.</p>
+<pre><code class="language-bash">cat &gt; aufgaben/meine.md &lt;&lt;&#x27;EOF&#x27;
+1. Lies &#x27;daten.csv&#x27; aus /work.
+2. Berechne den Mittelwert je Spalte.
+3. Schreibe das Ergebnis nach &#x27;auswertung.md&#x27;.
+EOF
+
+python3 agoris.py run -p research -t aufgaben/meine.md</code></pre>
+<h2>Eigene Policies</h2>
+<p>Eine Policy ist ein JSON-Fragment — nicht vollständig. Fehlende Werte kommen aus den Vorgaben in <code>agoris/policy.py</code>.</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;labor&quot;,
+  &quot;description&quot;: &quot;Rechnen dürfen, Internet nur für zwei Domains&quot;,
+  &quot;filesystem&quot;: { &quot;max_workspace_bytes&quot;: 104857600 },
+  &quot;process&quot;: { &quot;cpu_seconds&quot;: 60, &quot;memory_mb&quot;: 1024 },
+  &quot;network&quot;: {
+    &quot;mode&quot;: &quot;proxy&quot;,
+    &quot;allowed_domains&quot;: [&quot;python.org&quot;, &quot;docs.python.org&quot;],
+    &quot;deny_ports&quot;: [22, 3306, 5432]
+  },
+  &quot;tools&quot;: { &quot;enabled&quot;: [&quot;read_file&quot;, &quot;write_file&quot;, &quot;list_dir&quot;, &quot;run_python&quot;, &quot;fetch_url&quot;, &quot;finish&quot;] },
+  &quot;model&quot;: { &quot;max_steps&quot;: 20 }
+}</code></pre>
+<p>Verwenden:</p>
+<pre><code class="language-bash">python3 agoris.py run &quot;...&quot; -p research -f labor.json    # Ergänzung
+cp labor.json agoris/policies/labor.json                # eigene Policy
+python3 agoris.py run &quot;...&quot; -p labor</code></pre>
+<h3>Was die Abschnitte bewirken</h3>
+<table><thead><tr><th>Abschnitt</th><th>Schlüssel</th><th>Wirkung</th></tr></thead><tbody><tr><td><code>filesystem</code></td><td><code>writable</code></td><td>Wurzeln, in die der Agent schreiben darf</td></tr><tr><td></td><td><code>read_only_mounts</code></td><td>nur im Modus <code>system</code></td></tr><tr><td></td><td><code>forbidden</code></td><td>zusätzlich zur Fessel hart gesperrt</td></tr><tr><td></td><td><code>max_file_bytes</code></td><td><code>RLIMIT_FSIZE</code> und Werkzeuglimit</td></tr><tr><td></td><td><code>max_workspace_bytes</code></td><td>Größe des Arbeits-tmpfs</td></tr><tr><td><code>process</code></td><td><code>cpu_seconds</code></td><td><code>RLIMIT_CPU</code></td></tr><tr><td></td><td><code>wall_seconds</code></td><td>Wanduhr im Wirt</td></tr><tr><td></td><td><code>memory_mb</code></td><td><code>RLIMIT_AS</code>, <code>RLIMIT_DATA</code></td></tr><tr><td></td><td><code>max_processes</code></td><td><code>RLIMIT_NPROC</code></td></tr><tr><td><code>network</code></td><td><code>mode</code></td><td><code>none</code> oder <code>proxy</code></td></tr><tr><td></td><td><code>allowed_domains</code></td><td>Positivliste; <code>*.beispiel.de</code> erlaubt Subdomains</td></tr><tr><td></td><td><code>deny_ports</code></td><td>Ports, die der Proxy nie weitergibt</td></tr><tr><td><code>system</code></td><td><code>namespaces</code></td><td>welche Namespaces benutzt werden</td></tr><tr><td></td><td><code>jail_runtime</code></td><td><code>minimal</code> (nur Python) oder <code>system</code></td></tr><tr><td></td><td><code>seccomp</code></td><td><code>false</code> schaltet die Schicht ab</td></tr><tr><td><code>tools</code></td><td><code>enabled</code></td><td>die Werkzeugliste — das ist eine Sicherheitsgrenze</td></tr><tr><td><code>model</code></td><td><code>provider</code></td><td><code>simulated</code>, <code>echo</code>, <code>anthropic</code></td></tr><tr><td></td><td><code>max_steps</code></td><td>höchste Zahl von Modellanfragen</td></tr></tbody></table>
+<p>Plausibilitätsprüfung: <code>user</code> und <code>mount</code> müssen in <code>namespaces</code> stehen, <code>finish</code> muss in <code>enabled</code> sein, und <code>mode: proxy</code> verlangt mindestens eine erlaubte Domain. Sonst bricht das Laden mit einer Meldung ab, statt still zu arbeiten.</p>
+<h2>Eigenes Modell</h2>
+<pre><code class="language-bash">export AGORIS_API_KEY=&quot;sk-...&quot;
+export AGORIS_MODEL=&quot;claude-sonnet-4-20250514&quot;
+python3 agoris.py run &quot;...&quot; -p research -m anthropic</code></pre>
+<p>Der Schlüssel bleibt im Wirt. Dass der Agent ihn nicht sieht, ist keine Konfigurationsfrage, sondern wird im Angriffsbatterie-Ergebnis <code>key_leak</code> geprüft.</p>
+<p>Für einen eigenen Anbieter eine Funktion in <code>agoris/model.py</code> ergänzen und in <code>PROVIDERS</code> eintragen:</p>
+<pre><code class="language-python">def _mein_anbieter(messages, tools):
+    ...
+    return {&quot;text&quot;: &#x27;{&quot;thought&quot;: &quot;...&quot;, &quot;tool&quot;: &quot;finish&quot;, &quot;args&quot;: {&quot;answer&quot;: &quot;...&quot;}}&#x27;}
+
+PROVIDERS[&quot;mein&quot;] = _mein_anbieter</code></pre>
+<p>Antwortformat: ein JSON-Objekt mit <code>thought</code>, <code>tool</code> und <code>args</code>. Was sich nicht parsen lässt, landet als Text in <code>finish</code> — ein kaputtes Modell beendet den Lauf, statt ihn hängen zu lassen.</p>
+<h2>Eigene Werkzeuge</h2>
+<p>Ein Werkzeug bekommt zwei Dinge: eine Policy (<code>tools.enabled</code>) und eine Funktion in <code>agoris/runtime/tools.py</code>.</p>
+<pre><code class="language-python">def zaehle_zeilen(self, path: str = &quot;&quot;, **_) -&gt; Dict[str, Any]:
+    real = _resolve(path)                      # Pfad-Fessel, nicht selbst bauen
+    if not self.policy.path_readable(real):
+        raise ToolError(f&quot;&#x27;{path}&#x27; ist nicht lesbar&quot;)
+    with open(real, encoding=&quot;utf-8&quot;) as fh:
+        return {&quot;ok&quot;: True, &quot;path&quot;: path, &quot;zeilen&quot;: sum(1 for _ in fh)}</code></pre>
+<p>Dann in <code>ToolBox._table</code> eintragen, in <code>agoris/model.py</code> ein Schema ergänzen (sonst kennt das Modell das Werkzeug nicht) und in <code>DEFAULT_PODUCTS</code> in <code>agoris/policy.py</code> erlauben.</p>
+<p>Zwei Regeln:</p>
+<ol><li><strong><code>_resolve()</code> benutzen.</strong> Es prüft <code>realpath</code> gegen <code>/work</code>. Wer stattdessen</li></ol>
+<p><code>os.path.join</code> nimmt, baut ein Loch.</p>
+<ol><li><strong>Jeder Aufruf wird protokolliert.</strong> <code>_table</code> erledigt das automatisch —</li></ol>
+<p>auch Fehlschläge.</p>
+<h2>Auswertung</h2>
+<p><code>bericht.json</code> lässt sich direkt auswerten:</p>
+<pre><code class="language-python">import json, glob, collections
+
+ergebnisse = []
+for pfad in glob.glob(&quot;runs/*/angriffe.json&quot;):
+    daten = json.load(open(pfad))
+    for e in daten[&quot;ergebnisse&quot;]:
+        eintraege = {&quot;policy&quot;: daten[&quot;policy&quot;], **e}
+        eintraege[&quot;quelle&quot;] = pfad
+        ergebnisse.append(eintraege)
+
+zusammen = collections.Counter(
+    (e[&quot;policy&quot;], e[&quot;status&quot;]) for e in ergebnisse if e[&quot;status&quot;] in (&quot;blocked&quot;, &quot;leaked&quot;, &quot;gap&quot;)
+)
+for schluessel, anzahl in sorted(zusammen.items()):
+    print(schluessel, anzahl)</code></pre>
+<p>Die Audit-Log-Dateien lassen sich mit <code>agoris.verify</code> oder direkt zeilenweise auswerten — jede Zeile enthält <code>seq</code>, <code>event</code>, <code>actor</code>, <code>ts</code> und <code>hash</code>.</p>
+<h2>Für die Schule</h2>
+<p>Die Anlage ist als Versuch aufgebaut, nicht als fertiges Produkt. Ein sinnvoller Ablauf:</p>
+<ol><li><code>doctor</code> — was kann dieser Rechner?</li><li><code>attacks</code> — halten die Schichten?</li><li>Eine Policy verschärfen (<code>cpu_seconds: 5</code>) und den Lauf wiederholen.</li><li>Eine Policy lockern (Netz ohne Positivliste) und den Lauf wiederholen.</li><li>Den Bericht vergleichen: Was hat sich geändert, welche Schicht war wirksam?</li></ol>
+<p>Schritt 5 ist der eigentliche Lernmoment. Der Bericht benennt pro Schicht <code>aktiv</code>/<code>inaktiv</code>, damit niemand eine Sicherheitsaussage mit einer Schicht verbindet, die gar nicht lief.</p>
+<h2>Bekannte Stellen</h2>
+<table><thead><tr><th>Stelle</th><th>Verhalten</th><th>Umgehung</th></tr></thead><tbody><tr><td><code>seccomp</code></td><td><code>EINVAL</code> in vielen Containern</td><td>Schicht wird als inaktiv protokolliert</td></tr><tr><td><code>RLIMIT_NPROC</code></td><td>gilt nicht für uid 0</td><td>AGORIS als Nicht-Root betreiben</td></tr><tr><td><code>/proc</code>-Mount</td><td><code>EPERM</code> in vielen Containern</td><td>unkritisch, PID-Namespace aktiv</td></tr><tr><td>HTTPS</td><td>nicht unterstützt</td><td>TLS-Terminierung im Wirt nötig</td></tr><tr><td>Kernel-Bugs</td><td>umgehen alles hier</td><td>das ist der Grund, warum das Ding ein Experiment ist</td></tr></tbody></table>
+</article>
+<footer><a href="../index.html">&larr; zur&shy;ck zur AGORIS-Seite</a></footer>
+</body>
+</html>

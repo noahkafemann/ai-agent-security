@@ -17,8 +17,12 @@ Werkzeuge benutzen, die der Wirt ihm gegeben hat.
 from __future__ import annotations
 
 import os
-import resource
 import sys
+
+try:  # laeuft nur unter Linux, soll aber sauber importierbar bleiben
+    import resource
+except ImportError:  # pragma: no cover - Windows
+    resource = None
 import time
 import traceback
 from typing import Any, Dict, List
@@ -36,7 +40,7 @@ MAX_STEPS_FALLBACK = 12
 def _sysinfo() -> Dict[str, Any]:
     """Was der Agent von sich selbst weiss - und was eben *nicht*."""
     grenzen = {}
-    for name in ("cpu", "as", "data", "fsize", "nproc", "nofile", "core"):
+    for name in (() if resource is None else ("cpu", "as", "data", "fsize", "nproc", "nofile", "core")):
         wert = getattr(resource, f"RLIMIT_{name.upper()}", None)
         if wert is not None:
             grenzen[name] = resource.getrlimit(wert)[0]

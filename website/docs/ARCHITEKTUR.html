@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architektur</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<article>
+<h1>Architektur</h1>
+<p>Dieses Dokument beschreibt, <em>warum</em> AGORIS so gebaut ist, wie es ist. Für die Bedienung siehe <a href="ANWENDUNG.html">ANWENDUNG.md</a>, für die Messwerte <a href="VERSUCHSPROTOKOLL.html">VERSUCHSPROTOKOLL.md</a>.</p>
+<h2>Leitentscheidung</h2>
+<p><strong>Der Wirt entscheidet, nicht der Agent.</strong></p>
+<p>Ein Sprachmodell bekommt Instruktionen als Text. Jede Zusicherung, die wir ihm geben (&quot;ignoriere das nicht&quot;, &quot;nutze keine anderen Werkzeuge&quot;), ist eine Bitte. AGORIS setzt dagegen Grenzen, die keine Bitte beantworten müssen: Der Prozess bekommt ein Dateisystem, das keine Wirtsdatei enthält; ein Netz-Interface, das es nicht gibt; ein CPU-Konto, das endet.</p>
+<p>Der Konflikt zwischen „der Agent ist unzuverlässig&quot; und „der Agent muss arbeiten können&quot; löst sich dadurch, dass beides gleichzeitig wahr ist: Der Agent bekommt genau das, was seine Aufgabe braucht — und nichts, was danach noch nützlich wäre.</p>
+<h2>Zwei Prozesse, ein Kanal</h2>
+<pre><code>   WIRT                                    GEFÄNGNIS
+   ┌──────────────────────────────┐        ┌────────────────────────┐
+   │ Policy, Limits, Proxy,      │        │ PID 1: runtime/worker  │
+   │ Modell-Broker, Audit        │        │   ├─ tools.py (5 Werkz.)│
+   │                             │        │   └─ protocol.py       │
+   │   fork()                    │        │                        │
+   │      │                      │        │                        │
+   │      ├── stdin  ◄───────────┼────────┤ schreibt               │
+   │      └── stdout ───────────►┼────────┤ liest                  │
+   └──────────────────────────────┘        └────────────────────────┘</code></pre>
+<p>Der Kanal ist ein Newline-JSON-Protokoll über zwei Pipes. Bemerkenswert: es gibt <em>keinen</em> zweiten Weg in das Gefängnis. Kein Unix-Socket für Steuerbefehle, kein gemeinsames Verzeichnis, keine Signal-Schnittstelle für Daten. Das ist Absicht — jeder zusätzliche Kanal wäre eine zusätzliche Angriffsfläche.</p>
+<h3>Warum der Modell-Broker im Wirt liegt</h3>
+<p>Der Agent muss das Modell befragen. Er darf aber den API-Schlüssel weder lesen noch ausgeben. Deshalb schickt der Agent seine Konversation an den Wirt, der daraus einen echten API-Aufruf macht:</p>
+<pre><code>Agent  → {&quot;event&quot;: &quot;llm_request&quot;, &quot;messages&quot;: [...], &quot;tools&quot;: [...]}
+Wirt   → {&quot;op&quot;: &quot;llm_result&quot;, &quot;response&quot;: {&quot;text&quot;: &quot;...&quot;}}</code></pre>
+<p>Damit ist der Schlüssel eine Eigenschaft des Wirts, nicht eine Sache, die man im Gefängnis „verstecken&quot; könnte. Ein Angriff auf den Schlüssel ist kein Angriff auf eine Datei, sondern ein Angriff auf einen Prozess, der ihn nie ausgibt. Der Test <code>key_leak</code> prüft genau das: Er sucht die Umgebung des Agenten ab und meldet jede Variable mit <code>KEY</code>, <code>TOKEN</code>, <code>SECRET</code> oder <code>PASSWORD</code>.</p>
+<h2>Die Schichten</h2>
+<h3>1. Namespaces</h3>
+<p><code>unshare()</code> mit <code>CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWNET | CLONE_NEWIPC | CLONE_NEWUTS</code>.</p>
+<p>Danach schreibt der Kindprozess seine ID-Zuordnung:</p>
+<pre><code>/proc/self/setgroups  = &quot;deny&quot;
+/proc/self/uid_map     = &quot;0 &lt;uid&gt; &lt;n&gt;&quot;
+/proc/self/gid_map     = &quot;0 &lt;gid&gt; &lt;n&gt;&quot;</code></pre>
+<p>Das ist der heikelste Moment. Eine breite Zuordnung (<code>65536</code> IDs) ist nur erlaubt, wenn der Prozess im übergeordneten Namespace die Rechte dafür hat; sonst <code>EPERM</code>. Deshalb versucht AGORIS zuerst breit, fällt auf eine einzelne ID zurück und <strong>protokolliert</strong>, was geklappt hat. Eine stillschweigend schmalere Zuordnung wäre eine falsche Sicherheitsaussage.</p>
+<p><strong>Reihenfolge:</strong> <code>uid_map</code> kann man erst schreiben, wenn der User-Namespace existiert. Und <code>setuid</code> auf <code>nobody</code> muss <em>nach</em> dem Dateisystemaufbau passieren, denn bis dahin braucht man Rechte, um zu mounten.</p>
+<h3>2. Dateisystem</h3>
+<p>Ein <code>tmpfs</code> als neue Wurzel, <code>chroot</code> hinein, <code>cwd = /work</code>.</p>
+<p>Entscheidend ist, was <em>nicht</em> eingebunden wird. Der Modus <code>minimal</code> legt nur drei Dinge hinein:</p>
+<table><thead><tr><th>Im Gefängnis</th><th>Im Wirt</th></tr></thead><tbody><tr><td><code>/usr/bin/python3</code></td><td>Kopie des Interpreters</td></tr><tr><td><code>/usr/lib/python3.x</code></td><td>read-only Bind</td></tr><tr><td><code>/usr/lib/x86_64-linux-gnu</code></td><td>read-only Bind</td></tr><tr><td><code>/lib64/ld-linux-x86-64.so.2</code></td><td>read-only Bind</td></tr><tr><td><code>/etc/*</code></td><td>selbst erzeugt: passwd, group, hosts, nsswitch</td></tr><tr><td><code>/dev/{null,zero,random,urandom}</code></td><td>read-only Binds</td></tr><tr><td><code>/proc</code>, <code>/tmp</code></td><td>frische tmpfs-Mounts</td></tr><tr><td><code>/opt/agoris</code></td><td>Runtime, read-only</td></tr></tbody></table>
+<p>Keine Shell. Kein <code>ls</code>. Kein <code>curl</code>. Das ist der Unterschied zu einem Gefängnis, in dem das halbe Wirtssystem eingebunden ist: Hier kann der Agent nicht einmal <em>fragen</em>, ob er etwas benutzen möchte — es ist nicht da.</p>
+<p>Nach dem Aufbau wird die <strong>Wurzel des Gefängnisses auf nur-lesbar gesetzt</strong> (<code>MS_REMOUNT|MS_RDONLY</code>). <code>/work</code> und <code>/tmp</code> sind eigene tmpfs-Mounts und bleiben deshalb beschreibbar. Ohne diesen Schritt könnte der Agent sein eigenes <code>/usr/bin/python3</code> austauschen — der Angriff <code>eigenes_python_ersetzen</code> prüft das.</p>
+<p>Das <code>/etc</code> wird selbst erzeugt, statt den Wirt zu spiegeln. Es enthält keine <code>passwd</code>-Einträge außer <code>root</code> und <code>nobody</code>, keine Namensauflösung und ausdrücklich kein DNS.</p>
+<p><code>/proc</code> ist optional: In vielen Container-Umgebungen verbietet der Kernel das Mounten eines frischen procfs (<code>EPERM</code>). Ohne procfs sieht der Agent nichts Schlimmes — der PID-Namespace sorgt dafür, dass es dort ohnehin keine fremden Prozesse zu sehen gibt.</p>
+<h3>3. Rechte</h3>
+<p>Drei Schritte, in dieser Reihenfolge:</p>
+<ol><li><code>prctl(PR_SET_NO_NEW_PRIVS, 1)</code> — kein <code>execve</code> kann mehr Rechte aufstocken.</li><li>Alle Capabilities aus dem Bounding-Set werfen (<code>PR_CAPBSET_DROP</code>, 0..40).</li><li><code>capset</code> mit leeren Mengen — die aktiven Capabilities ebenfalls leeren.</li></ol>
+<p>Schritt 2 und 3 sind getrennt nötig. Der Bounding-Set bestimmt, was ein <code>execve</code> <em>erwerben</em> kann; die aktiven Capabilities bestimmen, was <em>jetzt</em> gilt. Erst nach einem <code>execve</code> ist die Permitted-Menge kleiner als der Bounding-Set — deshalb schließt sich die Lücke beim Start des Agenten automatisch.</p>
+<p><strong>Der uid-0-Fall:</strong> Läuft der Wirt als root, ist der Prozess im neuen Namespace uid 0 (bei schmaler Zuordnung). uid 0 ohne Capabilities kann nichts, was normale Benutzer nicht können — aber <code>RLIMIT_NPROC</code> gilt für uid 0 nicht. Das ist eine echte Lücke und steht als <code>gap</code> in der Angriffsbatterie, wenn sie sich zeigt.</p>
+<h3>4. Ressourcen</h3>
+<table><thead><tr><th>Grenze</th><th>Wert (<code>minimal</code>)</th><th>Wirkung</th></tr></thead><tbody><tr><td><code>RLIMIT_CPU</code></td><td>5 s</td><td>SIGXCPU, dann SIGKILL</td></tr><tr><td><code>RLIMIT_AS</code></td><td>128 MB</td><td>Adressraum begrenzt</td></tr><tr><td><code>RLIMIT_DATA</code></td><td>128 MB</td><td>Daten-Segment begrenzt</td></tr><tr><td><code>RLIMIT_FSIZE</code></td><td>256 KiB</td><td>keine großen Dateien</td></tr><tr><td><code>RLIMIT_NPROC</code></td><td>16</td><td>keine Prozess-Flut</td></tr><tr><td><code>RLIMIT_NOFILE</code></td><td>64</td><td>keine Datei-Flut</td></tr><tr><td><code>RLIMIT_CORE</code></td><td>0</td><td>kein Core-Dump im Wirts-Dateisystem</td></tr></tbody></table>
+<p>Gesetzt werden sie <strong>vor</strong> dem <code>execve</code>. Sonst könnte der Agent beim Start seine eigenen Grenzen aufheben.</p>
+<p>Fallstrick: <code>RLIM_INFINITY</code> ist <code>-1</code>. <code>min(grenzwert, RLIM_INFINITY)</code> ergibt <code>-1</code> — man hebt die Grenze also auf, statt sie zu setzen. Deshalb wird zuerst geprüft, ob die harte Grenze <code>RLIM_INFINITY</code> ist.</p>
+<p><code>RLIMIT_CPU</code> und <code>RLIMIT_NPROC</code> sind nicht das gleiche wie eine Wanduhr: Der Agent kann hängen, ohne CPU zu verbrauchen (z. B. <code>select</code> auf einem Socket). Dafür gibt es im Wirt zusätzlich die <code>wall_seconds</code> der Policy.</p>
+<h3>5. seccomp-BPF</h3>
+<p>Ein klassisches BPF-Programm, per <code>prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)</code> eingereicht:</p>
+<ol><li>Architektur prüfen (<code>AUDIT_ARCH_X86_64</code> / <code>AARCH64</code>), sonst <code>KILL</code>.</li><li><code>A = Syscall-Nummer</code></li><li><code>clone</code> mit <code>CLONE_NEW*</code>-Flaggen → <code>EPERM</code></li><li>Sperrliste → <code>EPERM</code> (<code>clone3</code> → <code>ENOSYS</code>)</li><li>alles andere → <code>ALLOW</code></li></ol>
+<p>Zwei Details mit Absicht:</p>
+<ul><li><strong><code>clone3</code> gibt <code>ENOSYS</code>, nicht <code>EPERM</code>.</strong> Die glibc fällt bei <code>ENOSYS</code> auf</li></ul>
+<p><code>clone</code> zurück. Mit <code>EPERM</code> wäre jeder <code>subprocess</code>-Aufruf tot — die Anlage wäre sicher, aber kaputt. Sicherheit durch Unbrauchbarkeit ist kein Ergebnis.</p>
+<ul><li><strong><code>prctl</code> steht auf der Liste.</strong> Damit kann der Agent <code>PR_SET_SECCOMP</code>,</li></ul>
+<p><code>PR_SET_PTRACER</code> und die Capability-Manipulation nicht selbst aufrufen.</p>
+<p><strong>Wenn seccomp nicht verfügbar ist</strong>, gibt <code>prctl</code> hier <code>EINVAL</code> (22). In Container-Umgebungen ist das häufig (z. B. wenn <code>seccomp</code> in <code>/proc</code> nicht aktiv ist). AGORIS protokolliert dann Grund und Schicht als inaktiv und wertet den Lauf als eingeschränkt. Eine Sicherheitsschicht, die stillschweigend fehlt, wäre schlimmer als eine, die fehlt.</p>
+<h3>6. Netz</h3>
+<p>Der Netz-Namespace startet mit genau einem Interface: <code>lo</code>, ausgeschaltet. AGORIS schaltet es hoch (<code>SIOCSIFFLAGS</code>) — ohne das scheitern manche Socket-Operationen mit <code>ENOTCONN</code>, was die Fehlersuche unnötig erschwert. Für eine Verbindung nach draußen reicht das nicht; dafür ist ein geroutetes Interface nötig, und davon gibt es keins.</p>
+<p>Der einzige Weg draußen ist der Unix-Socket <code>/run/agoris/proxy.sock</code>, read-only aus dem Wirt eingebunden. Der Proxy entscheidet:</p>
+<table><thead><tr><th>Prüfung</th><th>Beispiel</th></tr></thead><tbody><tr><td>Methode</td><td>nur <code>GET</code></td></tr><tr><td>Schema</td><td>nur <code>http://</code></td></tr><tr><td>Host</td><td>Positivliste der Policy</td></tr><tr><td>Port</td><td>nicht auf der Sperrliste</td></tr><tr><td>Größe</td><td><code>max_bytes_per_task</code></td></tr></tbody></table>
+<p>Wichtig: Der Proxy prüft das <strong>unabhängig</strong> vom Werkzeugcode. Selbst wenn ein manipulierter Agent <code>fetch_url</code> umgeht, kann der Proxy nichts weiterreichen, was nicht auf der Positivliste steht. Zwei Schichten, eine Wahrheit.</p>
+<p>Fehlermeldungen sind absichtlich <em>aufschlussreich</em> (<code>BLOCKIERT von der Sandbox-Policy: Port 22 steht auf der Sperrliste</code>): Ein Schüler soll aus einem blockierten Versuch lernen können, nicht raten müssen.</p>
+<h2>Fehler, die beim Bauen passiert sind</h2>
+<p>Diese Liste ist Teil der Dokumentation, weil sie zeigt, dass die Anlage getestet und nicht nur entworfen wurde.</p>
+<table><thead><tr><th>Fehler</th><th>Symptom</th><th>Ursache</th></tr></thead><tbody><tr><td>Breite ID-Zuordnung</td><td><code>EPERM</code> beim Schreiben von <code>uid_map</code></td><td>Rechte im übergeordneten Namespace fehlen</td></tr><tr><td>tmpfs-Optionen</td><td><code>EINVAL</code> beim Mount</td><td><code>nosuid,nodev</code> gehören in die Flags, nicht in <code>size=…</code></td></tr><tr><td>Bind-Mount Remount</td><td><code>ENODEV</code></td><td><code>MS_REC</code> auf einem Bind funktioniert nicht wie erwartet</td></tr><tr><td>Bind auf Datei</td><td><code>ENOTDIR</code></td><td>Ziel muss selbst eine Datei sein, kein Verzeichnis</td></tr><tr><td>Socket-Pfad</td><td><code>AF_UNIX path too long</code></td><td>Unix-Sockets: max. 108 Zeichen</td></tr><tr><td>Socket-Quelle</td><td><code>ENOENT</code></td><td>Jail-Pfad als Mount-Quelle statt Host-Pfad</td></tr><tr><td><code>sock_fprog</code></td><td><code>EINVAL</code></td><td><code>argtypes</code> auf <code>c_ulong</code> setzen, <code>ctypes.addressof()</code> übergeben</td></tr><tr><td><code>RLIM_INFINITY</code></td><td>Grenze aufgehoben statt gesetzt</td><td><code>-1</code> ist kleiner als jeder Wert</td></tr><tr><td>Payload unsichtbar</td><td><code>ENOENT</code> nach dem Mount</td><td>Ziel lag <em>innerhalb</em> des Jail-Roots</td></tr><tr><td>Pipe-Voll</td><td>Wirt wartet endlos</td><td>Pipes müssen <em>während</em> des Laufs gelesen werden</td></tr></tbody></table>
+<p>Der letzte Punkt ist kein Detail: Der klassische Fehler ist <code>fork</code>, dann <code>read()</code> vom Kind blockierend. Ein Kind, das 200 KiB schreibt, läuft in einen 64-KiB-Puffer und wartet — während der Wirt auf das Kind wartet.</p>
+<h2>Warum kein Docker und kein gVisor</h2>
+<p>Eine Container-Lösung wäre weniger Code. Aber:</p>
+<ul><li><strong>Docker braucht einen Daemon und Rechte</strong>, die hier nicht vorausgesetzt sind.</li><li><strong>gVisor braucht einen eigenen Kernel</strong> — er löst das Problem, indem er alles</li></ul>
+<p>neu macht. Das ist keine Abhängigkeit, die man in einer Schulumgebung einführen sollte.</p>
+<ul><li><strong>Namespaces direkt aufzurufen</strong> macht jede einzelne Schicht sichtbar. Für</li></ul>
+<p>jemanden, der verstehen will, <em>warum</em> etwas sicher ist, ist das der Unterschied zwischen Beweis und Behauptung.</p>
+<p>Der Preis ist ehrlich: AGORIS ist weniger erprobt als Docker. Genau deshalb protokolliert es jede Schicht, jede Fehlmeldung und jeden gescheiterten Angriff.</p>
+<h2>Verzeichniszuordnung</h2>
+<table><thead><tr><th>Im Gefängnis</th><th>Herkunft</th></tr></thead><tbody><tr><td><code>/</code></td><td>tmpfs, <strong>nach dem Aufbau auf nur-lesbar</strong></td></tr><tr><td><code>/work</code></td><td>eigenes tmpfs — einziger beschreibbarer Arbeitsbereich</td></tr><tr><td><code>/tmp</code></td><td>eigenes tmpfs, 8 MiB</td></tr><tr><td><code>/opt/agoris</code></td><td>Kopie aus <code>runs/&lt;lauf&gt;/payload</code>, read-only</td></tr><tr><td><code>/run/agoris/proxy.sock</code></td><td>Bind aus <code>/tmp/agoris-&lt;pid&gt;-&lt;hash&gt;/proxy.sock</code></td></tr><tr><td><code>/usr/bin/python3</code></td><td>Kopie des Wirt-Interpreters</td></tr><tr><td><code>/etc</code></td><td>selbst erzeugt, kein Wirts-Inhalt</td></tr><tr><td><code>/tmp</code></td><td>eigene tmpfs, 8 MiB</td></tr></tbody></table>
+<p><code>/opt/agoris</code> ist read-only, weil dort die Werkzeuge liegen. Ein Agent, der <code>tools.py</code> umschreibt, hat sonst das Problem gelöst, seinen eigenen Wächter abzuschalten — deshalb prüft der Test <code>write_readonly</code> zusätzlich <strong>vom Wirt aus</strong>, ob die Datei im Host-Baum auftaucht.</p>
+</article>
+<footer><a href="../index.html">&larr; zur&shy;ck zur AGORIS-Seite</a></footer>
+</body>
+</html>
