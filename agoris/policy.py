@@ -72,7 +72,7 @@ DEFAULTS: Dict[str, Any] = {
         "jail_runtime": "minimal",  # "minimal" = nur Python, "system" = ganzes /usr
     },
     "tools": {
-        "enabled": ["read_file", "write_file", "list_dir", "run_python", "http_get", "finish"],
+        "enabled": ["read_file", "write_file", "list_dir", "run_python", "fetch_url", "finish"],
         "args_max_chars": 8_000,
     },
     "model": {

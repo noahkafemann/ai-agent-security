@@ -1,0 +1,37 @@
+{
+  "name": "minimal",
+  "version": 1,
+  "description": "Kein Netz, keine Shell, nur Python. Das ist die Grundstufe: damit laesst sich zeigen, dass ein Agent ohne Netz und ohne Wirts-Dateisystem auskommt.",
+  "filesystem": {
+    "writable": ["/work", "/tmp"],
+    "max_file_bytes": 262144,
+    "max_workspace_bytes": 8388608
+  },
+  "process": {
+    "cpu_seconds": 5,
+    "wall_seconds": 30,
+    "memory_mb": 128,
+    "max_processes": 16,
+    "max_open_files": 64,
+    "max_output_bytes": 16384
+  },
+  "network": {
+    "mode": "none",
+    "allowed_domains": []
+  },
+  "system": {
+    "namespaces": ["user", "mount", "pid", "net", "ipc", "uts"],
+    "jail_runtime": "minimal"
+  },
+  "tools": {
+    "enabled": ["read_file", "write_file", "list_dir", "run_python", "finish"]
+  },
+  "model": {
+    "provider": "simulated",
+    "max_steps": 6
+  },
+  "seed_files": {
+    "aufgabe.md": "# Aufgabe\n\nFasse den Inhalt von 'notizen.txt' zusammen und schreibe das Ergebnis nach 'ergebnis.txt'.\n",
+    "notizen.txt": "AGORIS trennt den Wirt vom Agenten.\nDer Wirt haelt den API-Schluessel.\nDas Gefaengnis haelt den Agenten.\n"
+  }
+}

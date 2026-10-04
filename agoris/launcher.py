@@ -48,6 +48,7 @@ class LaunchResult:
         self.tool_calls: List[Dict[str, Any]] = []
         self.metrics: Dict[str, Any] = {}
         self.stopped: str = "?"
+        self.steps: int = 0
         self.seconds: float = 0.0
         self.transcript: List[str] = []
 
@@ -109,7 +110,10 @@ def run_agent(
     if pid == 0:  # ----------------------------------------------------- Kind
         os.close(host_to_agent_w)
         os.close(agent_to_host_r)
-        status = _child_agent(jail_root, policy, config, host_to_agent_r, agent_to_host_w, package_copy)
+        status = _child_agent(
+            jail_root, policy, config, host_to_agent_r, agent_to_host_w, package_copy,
+            socket_dir if proxy_active else None,
+        )
         os._exit(status)
 
     # ---------------------------------------------------------- Elternteil
@@ -328,6 +332,7 @@ def _child_agent(
     in_fd: int,
     out_fd: int,
     package_copy: str,
+    host_socket_dir: Optional[str] = None,
 ) -> int:
     # Der Kanal des Agenten ist exakt stdin/stdout. stderr bleibt auf dem
     # Terminal - so sieht man Tracebacks auch bei einem abgestuerzten Lauf.
@@ -336,8 +341,12 @@ def _child_agent(
     child_out = os.fdopen(os.dup(1), "w", encoding="utf-8")
     child_in = os.fdopen(0, "r", encoding="utf-8")
     channel = Channel(child_in, child_out)
+    # Wichtig: Fuer den Aufbau braucht der Kindprozess den *Host*-Pfad des
+    # Sockets, fuer den Agenten gehoert der *Jail*-Pfad in die Policy.
+    # Vertauscht man beide, versucht das Gefaengnis seinen eigenen Pfad zu
+    # mounten - und scheitert mit ENOENT.
     extra = {
-        "socket_dir": config.get("socket_dir"),
+        "host_socket_dir": host_socket_dir,
         "jail_runtime": policy.system.get("jail_runtime", "minimal"),
     }
     try:

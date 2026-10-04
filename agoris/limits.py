@@ -15,10 +15,10 @@ from typing import Any, Dict, List, Tuple
 MB = 1024 * 1024
 
 
-def apply(process_policy: Dict[str, Any]) -> List[Tuple[str, int, int]]:
+def apply(process_policy: Dict[str, Any]) -> Dict[str, Any]:
     """Setzt alle Grenzen aus dem Policy-Abschnitt ``process``.
 
-    Rueckgabe: Liste (Name, weicher Wert, harter Wert) fuer das Audit-Log.
+    Rueckgabe: ein Protokoll-Dict mit den gesetzten Werten fuer das Audit-Log.
     """
     mem_bytes = int(process_policy.get("memory_mb", 256)) * MB
     nofile = int(process_policy.get("max_open_files", 128))
@@ -55,7 +55,23 @@ def apply(process_policy: Dict[str, Any]) -> List[Tuple[str, int, int]]:
             applied.append((name, target_soft, target_hard))
         except (ValueError, OSError) as exc:  # pragma: no cover - plattformabhaengig
             print(f"[limits] {name} nicht setzbar: {exc}", flush=True)
-    return applied
+    gesetzt = {name for name, _soft, _hard in applied}
+    return {
+        "active": bool(applied),
+        "applied": [{"limit": name, "soft": soft, "hard": hard} for name, soft, hard in applied],
+        "not_applied": [
+            name
+            for name in (
+                "RLIMIT_CPU",
+                "RLIMIT_AS",
+                "RLIMIT_FSIZE",
+                "RLIMIT_NPROC",
+                "RLIMIT_NOFILE",
+                "RLIMIT_CORE",
+            )
+            if name not in gesetzt
+        ],
+    }
 
 
 def current() -> Dict[str, int]:
