@@ -51,6 +51,7 @@ class LaunchResult:
         self.steps: int = 0
         self.seconds: float = 0.0
         self.transcript: List[str] = []
+        self.files: List[str] = []
 
 
 class SnippetResult:
@@ -154,7 +155,8 @@ def run_agent(
             elif event == "log":
                 line = f"  [Schritt {message.get('step')}] {message.get('message')}"
                 result.transcript.append(line)
-                print(line, flush=True)
+                if not quiet:
+                    print(line, flush=True)
                 audit.record(
                     "agent_message", actor="agent", step=message.get("step"), text=message.get("message")
                 )
@@ -164,7 +166,8 @@ def run_agent(
                 flag = "BLOCKIERT" if call.get("blocked") else ("ok" if call.get("ok") else "fehlgeschlagen")
                 line = f"    -> {call.get('tool')} [{flag}] {call.get('seconds')}s"
                 result.transcript.append(line)
-                print(line, flush=True)
+                if not quiet:
+                    print(line, flush=True)
                 audit.record(
                     "tool_call",
                     actor="agent",
@@ -175,9 +178,10 @@ def run_agent(
                 )
             elif event == "result":
                 result.answer = message.get("answer", "")
-                result.steps = message.get("steps", [])
+                result.steps = message.get("steps", 0)
                 result.metrics = message.get("metrics", {})
                 result.stopped = message.get("stopped", "?")
+                result.files = _uebernehmen(message.get("dateien", []), run_dir)
             elif event == "fatal":
                 result.stopped = "fatal"
                 result.answer = message.get("error", "")
@@ -462,6 +466,35 @@ def prepare_jail_dirs(run_dir: str, policy: Policy) -> str:
         shutil.rmtree(target)
     shutil.copytree(PACKAGE_ROOT, target, dirs_exist_ok=True, ignore=shutil.ignore_patterns("__pycache__"))
     return payload
+
+
+def _uebernehmen(dateien: List[Dict[str, Any]], run_dir: str) -> List[str]:
+    """Schreibt die Ausgabe des Agenten in ``<lauf>/ausgabe/`` zurueck.
+
+    Das ist noetig, weil das Arbeitsverzeichnis des Agenten ein ``tmpfs`` im
+    Mount-Namespace ist: mit dem Lauf verschwindet es spurlos. Wer wissen will,
+    was der Agent produziert hat, laesst sich das also nicht vom Dateisystem
+    ablesen - es muss vorher geholt werden.
+    """
+    geschrieben: List[str] = []
+    if not dateien:
+        return geschrieben
+    basis = os.path.join(run_dir, "ausgabe")
+    os.makedirs(basis, exist_ok=True)
+    for eintrag in dateien:
+        pfad = str(eintrag.get("pfad", "")).strip()
+        if not pfad or pfad.startswith("("):
+            continue
+        # Nur Dateien unterhalb /work uebernehmen, ohne den Pfad auszuschreiben.
+        relativ = pfad[len("/work/"):] if pfad.startswith("/work/") else os.path.basename(pfad)
+        if not relativ or relativ.startswith("/") or ".." in relativ.split("/"):
+            continue
+        ziel = os.path.join(basis, relativ)
+        os.makedirs(os.path.dirname(ziel), exist_ok=True)
+        with open(ziel, "w", encoding="utf-8") as fh:
+            fh.write(str(eintrag.get("inhalt") or ""))
+        geschrieben.append(ziel)
+    return geschrieben
 
 
 def _tool_schemas(names: List[str]) -> List[Dict[str, Any]]:

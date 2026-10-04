@@ -25,8 +25,8 @@ from . import attacks as attacks_mod
 from . import report as report_mod
 from . import seccomp as seccomp_mod
 from .audit import AuditLog
-from .launcher import run_agent
-from .policy import Policy
+from .launcher import run_agent, run_snippet
+from .policy import Policy, _deep_merge
 
 RESULTS_DIR = "runs"
 BANNER = "AGORIS - sichere Umgebung fuer unzuverlaessige KI-Agenten"
@@ -54,7 +54,8 @@ def doctor(args: argparse.Namespace = None) -> int:
     with open("/proc/sys/user/max_user_namespaces") as fh:
         print(f"max_user_ns      {fh.read().strip()}")
     for pfad in ("/usr/bin/python3", "/lib64", "/usr/lib"):
-        print(f"{pfad:<16}{'vorhanden' if os.path.exists(pfad) else 'FEHLT'}")
+        zustand = "vorhanden" if os.path.exists(pfad) else "FEHLT"
+        print(f"{pfad:<18}{zustand}")
 
     print()
     print("Namespaces:")
@@ -159,7 +160,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             aufgabe = fh.read().strip()
     if args.file:
         with open(args.file, "r", encoding="utf-8") as fh:
-            policy = Policy.from_dict({**policy.raw, **json.load(fh)}, source=f"{policy.source} + {args.file}")
+            # Tiefen-Merge, nicht {**a, **b}: sonst wuerde ein "network"-Objekt
+            # in der Datei den *ganzen* Abschnitt ersetzen und dabei z. B. den
+            # Proxy-Modus still auf "none" zuruecksetzen.
+            try:
+                policy = Policy.from_dict(
+                    _deep_merge(policy.raw, json.load(fh)),
+                    source=f"{policy.source} + {args.file}",
+                )
+            except ValueError as exc:
+                print(f"Ergänzung abgelehnt: {exc}", file=sys.stderr)
+                return 2
 
     run_dir = _new_run_dir(policy.name)
     print(BANNER)
@@ -193,12 +204,115 @@ def cmd_run(args: argparse.Namespace) -> int:
         f"{verification.get('problems', []) or 'keine Probleme'})"
     )
     print(f"Antwort: {result.answer[:300] or '(leer)'}")
+    if result.files:
+        print(f"Dateien des Agenten ({len(result.files)}) in {os.path.join(run_dir, 'ausgabe')}:")
+        for datei in result.files:
+            print(f"  {os.path.relpath(datei, run_dir)}  ({os.path.getsize(datei)} B)")
 
     daten = report_mod.run_report(result, policy, audit.path, verified)
     report_mod.write(os.path.join(run_dir, "bericht.md"), report_mod.to_markdown(daten, verified))
     report_mod.write_json(os.path.join(run_dir, "bericht.json"), daten)
     print(f"Bericht: {os.path.join(run_dir, 'bericht.md')}")
     return 0 if verified else 1
+
+
+# ------------------------------------------------------------------ inspect
+def _inspektions_skript() -> str:
+    """Prueft aus der Sicht des Agenten, wie das Gefaengnis wirklich aussieht.
+
+    Der Code laeuft *im* Gefaengnis, nicht im Wirt. Genau deshalb ist die
+    Ausgabe ein Beweis und keine Behauptung: Wer sie liest, hat den Blick
+    des Agenten.
+    """
+    return r'''
+import json, os, resource, socket
+
+def eintraege(pfad):
+    try:
+        return sorted(os.listdir(pfad))
+    except OSError as exc:
+        return "nicht lesbar: %s" % exc.strerror
+
+def schreibtest(ziel):
+    try:
+        with open(ziel, "w", encoding="utf-8") as fh:
+            fh.write("probe")
+        os.unlink(ziel)
+        return "BESCHREIBBAR"
+    except OSError as exc:
+        return "%s (%s)" % (exc.strerror, exc.__class__.__name__)
+
+bericht = {}
+bericht["1_arbeitsverzeichnis"] = os.getcwd()
+bericht["2_benutzer"] = {
+    "uid": os.getuid(),
+    "gid": os.getgid(),
+    "euid": os.geteuid(),
+    "prozess_id": os.getpid(),
+}
+bericht["3_inhalt_von_/"] = eintraege("/")
+bericht["4_inhalt_von_/usr_bin"] = eintraege("/usr/bin")
+bericht["5_inhalt_von_/etc"] = eintraege("/etc")
+bericht["6_inhalt_von_/work"] = eintraege("/work")
+bericht["7_wo_darf_geschrieben_werden"] = {
+    ziel: schreibtest(ziel)
+    for ziel in ("/work/probe.txt", "/tmp/probe.txt", "/usr/bin/probe.txt",
+                 "/etc/probe.txt", "/opt/agoris/probe.txt")
+}
+bericht["8_darf_gelesen_werden"] = {
+    ziel: os.path.exists(ziel)
+    for ziel in ("/etc/shadow", "/etc/passwd", "/root", "/sys", "/proc", "/dev/mem", "/dev/urandom")
+}
+bericht["9_umgebungsvariablen"] = sorted(os.environ)
+bericht["10_geheimnisse_sichtbar"] = [
+    name for name in os.environ
+    if any(muster in name.upper() for muster in ("KEY", "TOKEN", "SECRET", "PASSWORD"))
+]
+grenzen = {}
+for name in ("CPU", "AS", "DATA", "FSIZE", "NPROC", "NOFILE", "CORE"):
+    wert = getattr(resource, "RLIMIT_" + name, None)
+    if wert is not None:
+        grenzen[name] = resource.getrlimit(wert)[0]
+bericht["11_ressourcengrenzen"] = grenzen
+verbindung = socket.socket()
+verbindung.settimeout(5)
+try:
+    verbindung.connect(("1.1.1.1", 80))
+    bericht["12_internetzugriff"] = "VERBINDUNG AUFGEBAUT - das sollte nicht passieren!"
+except OSError as exc:
+    bericht["12_internetzugriff"] = "%s (%s)" % (exc.strerror, exc.__class__.__name__)
+finally:
+    verbindung.close()
+print(json.dumps(bericht, indent=2, ensure_ascii=False))
+'''
+
+
+def cmd_inspect(args: argparse.Namespace) -> int:
+    policy = Policy.load(args.policy)
+    run_dir = _new_run_dir(f"inspect-{policy.name}")
+    print(BANNER)
+    print(f"Innenansicht des Gefaengnisses (Policy '{policy.name}')")
+    print("Dieser Code laeuft im Gefaengnis, nicht auf deinem Rechner.")
+    print("-" * 64)
+    result = run_snippet(
+        _inspektions_skript(),
+        policy,
+        run_dir,
+        timeout=30,
+        label="inspect",
+    )
+    print(result.stdout.rstrip() or "(keine Ausgabe)")
+    if result.stderr.strip():
+        print("-" * 64)
+        print(result.stderr.strip()[-800:])
+    print("-" * 64)
+    print(f"Beendet nach {result.seconds}s, Exit {result.exit_code}, Signal {result.signal}")
+    inaktiv = sorted(result.jail_report.get("inactive_layers", []))
+    if inaktiv:
+        print(f"Schichten INAKTIV: {', '.join(inaktiv)}")
+    if result.exit_code not in (0, None) or not result.stdout.strip():
+        return 1
+    return 0
 
 
 # ------------------------------------------------------------------- attacks
@@ -235,19 +349,29 @@ def cmd_attacks(args: argparse.Namespace) -> int:
 
 # -------------------------------------------------------------------- verify
 def cmd_verify(args: argparse.Namespace) -> int:
-    pfad = os.path.join(args.run_dir, "audit.jsonl") if os.path.isdir(args.run_dir) else args.run_dir
-    if not os.path.exists(pfad):
-        print(f"Audit-Log nicht gefunden: {pfad}", file=sys.stderr)
-        return 2
-    log = AuditLog(pfad, echo=False)
-    eintraege = log.read_all()
-    ergebnis = log.verify()
-    log.close()
-    if ergebnis.get("ok"):
-        print(f"Hashkette gueltig: {len(eintraege)} Eintraege, {ergebnis.get('entries', 0)} geprueft")
-        return 0
-    print(f"Hashkette GEBROCHEN: {ergebnis}", file=sys.stderr)
-    return 1
+    schlechter: List[str] = []
+    for ziel in args.run_dir:
+        pfad = os.path.join(ziel, "audit.jsonl") if os.path.isdir(ziel) else ziel
+        if not os.path.exists(pfad):
+            print(f"Audit-Log nicht gefunden: {pfad}", file=sys.stderr)
+            schlechter.append(pfad)
+            continue
+        log = AuditLog(pfad, echo=False)
+        eintraege = log.read_all()
+        ergebnis = log.verify()
+        log.close()
+        if ergebnis.get("valid"):
+            print(
+                f"OK   {pfad}: {len(eintraege)} Eintraege gelesen, "
+                f"{ergebnis.get('entries', 0)} geprueft, keine Probleme"
+            )
+            print(f"     Kopf: {ergebnis.get('head', '-')}")
+        else:
+            print(f"FEHL {pfad}: {len(eintraege)} Eintraege gelesen, Kette gebrochen", file=sys.stderr)
+            for problem in ergebnis.get("problems", []):
+                print(f"       {problem}", file=sys.stderr)
+            schlechter.append(pfad)
+    return 1 if schlechter else 0
 
 
 # ----------------------------------------------------------------------- main
@@ -272,14 +396,18 @@ def build_parser() -> argparse.ArgumentParser:
     lauf.add_argument("--timeout", type=float, help="Wanduhr-Stopp in Sekunden")
     lauf.set_defaults(func=cmd_run)
 
+    blick = sub.add_parser("inspect", help="Innenansicht des Gefaengnisses zeigen")
+    blick.add_argument("-p", "--policy", default="minimal")
+    blick.set_defaults(func=cmd_inspect)
+
     angriff = sub.add_parser("attacks", help="Ausbruchversuche ausfuehren")
     angriff.add_argument("-p", "--policy", default="minimal")
     angriff.add_argument("--timeout", type=float, default=20.0)
     angriff.add_argument("--only", help="nur diese Angriffe (kommagetrennt)")
     angriff.set_defaults(func=cmd_attacks)
 
-    pruef = sub.add_parser("verify", help="Audit-Hashkette pruefen")
-    pruef.add_argument("run_dir")
+    pruef = sub.add_parser("verify", help="Audit-Hashkette pruefen (mehrere Pfade moeglich)")
+    pruef.add_argument("run_dir", nargs="+", help="Laufordner oder audit.jsonl")
     pruef.set_defaults(func=cmd_verify)
     return parser
 

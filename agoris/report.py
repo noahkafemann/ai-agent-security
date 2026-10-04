@@ -64,6 +64,10 @@ def run_report(
             "writable_roots": result.ready.get("info", {}).get("writable_roots", []),
             "tool_calls": len(result.tool_calls),
             "metrics": result.metrics,
+            "files_written": [
+                os.path.relpath(p, os.path.dirname(os.path.dirname(p)))
+                for p in getattr(result, "files", [])
+            ],
         },
         "tool_calls": [
             {"tool": c.get("tool"), "ok": c.get("ok"), "blocked": c.get("blocked"), "seconds": c.get("seconds")}
@@ -118,6 +122,8 @@ def _run_markdown(daten: Dict[str, Any], audit_verified: Optional[bool]) -> str:
         f"- UID im Gefaengnis: `{agent['uid_in_jail']}`",
         f"- API-Schluessel sichtbar: **{'ja' if agent['api_key_visible'] else 'nein'}**",
         f"- Werkzeuge: {', '.join(agent['tools']) or '-'}",
+        f"- Vom Agenten geschriebene Dateien: {len(agent.get('files_written', []))}"
+        + (f" ({', '.join(agent['files_written'][:5])})" if agent.get("files_written") else ""),
         f"- Schreibbare Wurzeln: {', '.join(agent['writable_roots'])}",
         "",
         "## Werkzeugaufrufe",

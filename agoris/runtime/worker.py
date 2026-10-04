@@ -62,6 +62,40 @@ def _tool_schema_for(tools) -> List[Dict[str, Any]]:
     return [tool for tool in model_mod.TOOL_SCHEMA if tool["name"] in tools.available]
 
 
+def _sammle_ausgabe(max_kbytes: int = 64) -> List[Dict[str, Any]]:
+    """Liest /work aus und schickt es dem Wirt mit.
+
+    Warum das nötig ist: Das Arbeitsverzeichnis ist ein ``tmpfs`` im
+    Mount-Namespace des Agenten. Sobald der Lauf endet, ist der Namespace weg -
+    und mit ihm alle Dateien. Ohne diesen Schritt könnte niemand nachsehen, was
+    der Agent tatsaechlich produziert hat. Der Inhalt reist deshalb ueber den
+    Kanal zurueck in das Verzeichnis ``ausgabe/`` auf dem Wirt.
+    """
+    ausgabe: List[Dict[str, Any]] = []
+    budget = max_kbytes * 1024
+    for wurzel, _dirs, dateien in os.walk("/work"):
+        for name in sorted(dateien):
+            pfad = os.path.join(wurzel, name)
+            eintrag: Dict[str, Any] = {"pfad": pfad, "bytes": 0, "inhalt": None}
+            try:
+                with open(pfad, "rb") as fh:
+                    roh = fh.read(budget + 1)
+                eintrag["bytes"] = len(roh)
+                if len(roh) > budget:
+                    eintrag["inhalt"] = roh[:budget].decode("utf-8", "replace")
+                    eintrag["abgeschnitten"] = True
+                else:
+                    eintrag["inhalt"] = roh.decode("utf-8", "replace")
+                budget -= len(roh)
+            except OSError as exc:
+                eintrag["inhalt"] = f"(nicht lesbar: {exc})"
+            ausgabe.append(eintrag)
+            if budget <= 0:
+                ausgabe.append({"pfad": "(abgeschnitten)", "bytes": 0, "inhalt": "Fuellstand erreicht"})
+                break
+    return ausgabe
+
+
 def main() -> int:
     channel = Channel()
     config = channel.recv()
@@ -148,6 +182,7 @@ def main() -> int:
             "answer": antwort,
             "stopped": grund,
             "steps": schritte,
+            "dateien": _sammle_ausgabe(),
             "metrics": {
                 "wall_seconds": round(time.time() - start, 2),
                 "tool_calls": box.calls,

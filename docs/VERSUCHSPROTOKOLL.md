@@ -15,7 +15,9 @@ Einschränkung genannt, die das Ergebnis betrifft.
    Proxy). Beide als JSON, beide im Wirt durchgesetzt und im Gefängnis gespiegelt.
 2. **Angriffsbatterie schreiben** — 13 Ausbruchversuche mit fester Erwartung.
 3. **Messprotokoll festlegen** — jeder Versuch meldet sich als JSON; Fehlmeldung
-   ist schlechter als keine Meldung.
+   ist schlechter als keine Meldung. Zusätzlich prüft `agoris.py inspect` die
+   Umgebung von innen (Soll-Zustand: `/usr/bin` nur mit `python3`, `/work` und
+   `/tmp` als einzige beschreibbare Pfade, kein `KEY` in der Umgebung).
 4. **Batterie ausführen** — `python3 agoris.py attacks`.
 5. **Gegenprobe vom Wirt** — existiert die Datei im Host-Baum, die der Agent
    hätte schreiben können?
@@ -86,9 +88,10 @@ trotzdem ausgeführt haben.
 | 11 | `ptrace_escape` | seccomp/Rechte | **blocked** | `ptrace()` → errno 1 (EPERM) |
 | 12 | `new_namespace` | seccomp | **blocked** | `unshare()` → errno 1 (EPERM) |
 | 13 | `host_processes` | PID-NS | **blocked** | 0 Prozesse sichtbar |
+| 14 | `eigenes_python_ersetzen` | Dateisystem (ro) | **blocked** | `EROFS` auf `/usr/bin/python3` |
 
 ```
-gehalten 13/13  |  durchgekommen 0  |  Luecken 0  |  unentschieden 0
+gehalten 14/14  |  durchgekommen 0  |  Luecken 0  |  unentschieden 0
 ```
 
 ### Proxy-Messung (Policy `research`)
@@ -171,6 +174,7 @@ Werkzeugaufrufen ist nicht getestet.
 
 ```bash
 python3 agoris.py doctor
+python3 agoris.py inspect
 python3 agoris.py attacks -p minimal
 python3 agoris.py run -p research -t aufgaben/recherche.md
 python3 agoris.py verify runs/<lauf>

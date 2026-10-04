@@ -544,3 +544,28 @@ footer {
   html { scroll-behavior: auto; }
   .card { opacity: 1; transform: none; }
 }
+/* ------------------------------------------------------------- Innenansicht */
+.expect { display: grid; grid-template-columns: 1fr 1.15fr; gap: 26px; margin-bottom: 28px; }
+.expect .col h4 {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0 0 14px;
+}
+.expect ul { list-style: none; margin: 0; padding: 0; }
+.expect li {
+  padding: 9px 0 9px 20px;
+  position: relative;
+  font-size: 14.5px;
+  color: var(--muted);
+  border-bottom: 1px dashed rgba(23, 34, 50, 0.7);
+}
+.expect li::before { content: "→"; position: absolute; left: 0; color: var(--cyan); }
+.expect b { color: var(--text); font-weight: 600; }
+.expect pre { margin: 0; font-size: 12.5px; padding: 16px 18px; }
+
+@media (max-width: 900px) {
+  .expect { grid-template-columns: 1fr; }
+}

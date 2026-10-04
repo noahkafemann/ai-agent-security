@@ -7,7 +7,7 @@
      Sie werden hier fest eingetragen, statt sie zu erfinden - wenn sich das
      Ergebnis aendert, aendert sich diese Liste. */
   var MESSUNG = [
-    { n: "13/13", l: "Ausbruchversuche gehalten", cls: "ok" },
+    { n: "14/14", l: "Ausbruchversuche gehalten", cls: "ok" },
     { n: "0", l: "durchgekommen", cls: "ok" },
     { n: "8", l: "Schichten aktiv" },
     { n: "26", l: "Syscalls gesperrt" },

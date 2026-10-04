@@ -103,6 +103,11 @@ Keine Shell. Kein `ls`. Kein `curl`. Das ist der Unterschied zu einem
 Gefängnis, in dem das halbe Wirtssystem eingebunden ist: Hier kann der Agent
 nicht einmal *fragen*, ob er etwas benutzen möchte — es ist nicht da.
 
+Nach dem Aufbau wird die **Wurzel des Gefängnisses auf nur-lesbar gesetzt**
+(`MS_REMOUNT|MS_RDONLY`). `/work` und `/tmp` sind eigene tmpfs-Mounts und bleiben
+deshalb beschreibbar. Ohne diesen Schritt könnte der Agent sein eigenes
+`/usr/bin/python3` austauschen — der Angriff `eigenes_python_ersetzen` prüft das.
+
 Das `/etc` wird selbst erzeugt, statt den Wirt zu spiegeln. Es enthält keine
 `passwd`-Einträge außer `root` und `nobody`, keine Namensauflösung und
 ausdrücklich kein DNS.
@@ -249,7 +254,9 @@ Angriff.
 
 | Im Gefängnis | Herkunft |
 |---|---|
-| `/work` | tmpfs, beschreibbar — einziger Arbeitsbereich |
+| `/` | tmpfs, **nach dem Aufbau auf nur-lesbar** |
+| `/work` | eigenes tmpfs — einziger beschreibbarer Arbeitsbereich |
+| `/tmp` | eigenes tmpfs, 8 MiB |
 | `/opt/agoris` | Kopie aus `runs/<lauf>/payload`, read-only |
 | `/run/agoris/proxy.sock` | Bind aus `/tmp/agoris-<pid>-<hash>/proxy.sock` |
 | `/usr/bin/python3` | Kopie des Wirt-Interpreters |

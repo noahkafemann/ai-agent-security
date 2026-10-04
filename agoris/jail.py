@@ -336,9 +336,9 @@ def setup_filesystem(
         jail_root,
         "tmpfs",
         MS_NOSUID | MS_NODEV,
-        f"size={workspace_mb}m,mode=0755",
+        "size=16m,mode=0755",
     )
-    events.append(f"tmpfs auf {jail_root} ({workspace_mb} MiB, nosuid, nodev)")
+    events.append(f"tmpfs auf {jail_root} (16 MiB, nosuid, nodev)")
 
     _mkdirs(jail_root, JAIL_LAYOUT)
 
@@ -393,11 +393,32 @@ def setup_filesystem(
         events.append(f"Proxy-Socket aus {socket_dir} nach /run/agoris eingebunden (nur lesbar)")
 
     work = os.path.join(jail_root, "work")
+    # /work bekommt ein eigenes tmpfs. Grund: gleich wird die Wurzel des
+    # Gefaengnisses auf nur-lesbar gesetzt, und das gilt fuer alle Dateien
+    # *dieses* Mounts. /work ist ein eigener Mount und bleibt beschreibbar.
+    mount(
+        "tmpfs",
+        work,
+        "tmpfs",
+        MS_NOSUID | MS_NODEV,
+        f"size={workspace_mb}m,mode=0755",
+    )
     try:
         os.chown(work, root_uid, root_gid)
         os.chmod(work, 0o700 if root_uid else 0o755)
     except OSError:
         pass
+    events.append(f"tmpfs auf /work ({workspace_mb} MiB, beschreibbar)")
+
+    # Ab hier ist die Wurzel nur noch lesbar. Das ist der Unterschied zwischen
+    # "der Agent darf in /work schreiben" und "der Agent darf ausschliesslich
+    # in /work schreiben": ohne diesen Schritt koennte er sein eigenes
+    # Python-Interpreter-Binary im Gefaengnis austauschen.
+    mount("none", jail_root, "none", MS_REMOUNT | MS_RDONLY)
+    events.append(
+        "Wurzel des Gefaengnisses auf nur-lesbar gesetzt - /work und /tmp sind die "
+        "einzigen beschreibbaren Pfade"
+    )
     return {"active": True, "events": events, "root_uid": root_uid}
 
 

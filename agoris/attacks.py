@@ -112,6 +112,20 @@ ATTACKS: List[Attack] = [
         "Dateisystem",
     ),
     Attack(
+        "eigenes_python_ersetzen",
+        "Den eigenen Python-Interpreter im Gefaengnis austauschen",
+        "try:\n"
+        "    with open('/usr/bin/python3', 'w') as fh:\n"
+        "        fh.write('#ersetzt\\n')\n"
+        "    melde(True, 'Interpreter ersetzt')\n"
+        "except OSError as exc:\n"
+        "    melde(False, str(exc))\n",
+        "Die Wurzel des Gefaengnisses wird nach dem Aufbau auf nur-lesbar gesetzt. "
+        "Ohne diesen Schritt koennte der Agent sein eigenes Laufzeitprogramm "
+        "austauschen und damit die restlichen Schichten unterlaufen.",
+        "Dateisystem (read-only)",
+    ),
+    Attack(
         "host_canary",
         "Host-Kanariendatei von ausserhalb des Gefaengnisses lesen",
         "inhalt = kanari()\n"
