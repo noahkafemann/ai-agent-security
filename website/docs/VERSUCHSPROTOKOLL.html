@@ -15,7 +15,7 @@
 <h2>Aufbau</h2>
 <ol><li><strong>Policies definieren</strong> — <code>minimal</code> (kein Netz) und <code>research</code> (Netz über</li></ol>
 <p>Proxy). Beide als JSON, beide im Wirt durchgesetzt und im Gefängnis gespiegelt.</p>
-<ol><li><strong>Angriffsbatterie schreiben</strong> — 13 Ausbruchversuche mit fester Erwartung.</li><li><strong>Messprotokoll festlegen</strong> — jeder Versuch meldet sich als JSON; Fehlmeldung</li></ol>
+<ol><li><strong>Angriffsbatterie schreiben</strong> — 14 Ausbruchversuche mit fester Erwartung.</li><li><strong>Messprotokoll festlegen</strong> — jeder Versuch meldet sich als JSON; Fehlmeldung</li></ol>
 <p>ist schlechter als keine Meldung. Zusätzlich prüft <code>agoris.py inspect</code> die Umgebung von innen (Soll-Zustand: <code>/usr/bin</code> nur mit <code>python3</code>, <code>/work</code> und <code>/tmp</code> als einzige beschreibbare Pfade, kein <code>KEY</code> in der Umgebung).</p>
 <ol><li><strong>Batterie ausführen</strong> — <code>python3 agoris.py attacks</code>.</li><li><strong>Gegenprobe vom Wirt</strong> — existiert die Datei im Host-Baum, die der Agent</li></ol>
 <p>hätte schreiben können?</p>
@@ -53,7 +53,7 @@ API-Schluessel sichtbar: nein</code></pre>
 <h3>1. seccomp war inaktiv</h3>
 <p><code>prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER)</code> lieferte in dieser Umgebung <code>EINVAL</code> (22). Der Kernel erlaubt das Einreichen eines Filters hier nicht.</p>
 <p>Das heißt: Die Versuche 10, 11 und 12 wurden <strong>nicht</strong> von seccomp geblockt. Sie sind trotzdem gescheitert — aber an den Schichten <em>darunter</em>: verworfene Capabilities, fehlendes Interface, PID-Namespace. Genau dafür ist die Verteidigung in der Tiefe gedacht, und genau das ist hier messbar geworden.</p>
-<p><strong>Die Aussage lautet also nicht &quot;13/13 Schichten haben gehalten&quot;, sondern &quot;13/13 Versuche sind gescheitert, davon 3 ohne die stärkste Einzelschicht&quot;.</strong></p>
+<p><strong>Die Aussage lautet also nicht &quot;14/14 Schichten haben gehalten&quot;, sondern &quot;14/14 Versuche sind gescheitert, davon 3 ohne die stärkste Einzelschicht&quot;.</strong></p>
 <h3>2. Lauf als root</h3>
 <p>Mit uid 0 im neuen Namespace gilt <code>RLIMIT_NPROC</code> nicht. In dieser Messung griff sie trotzdem (der User-Zähler des Wirts war bereits über der Grenze), aber das ist Zufall der Umgebung, nicht Zusage. Wer das zuverlässig getestet haben will, muss AGORIS als eigenen Nicht-Root-Benutzer betreiben.</p>
 <h3>3. Der simulierte Anbieter prüft nicht das Modell</h3>
@@ -71,6 +71,7 @@ python3 agoris.py attacks -p minimal
 python3 agoris.py run -p research -t aufgaben/recherche.md
 python3 agoris.py verify runs/&lt;lauf&gt;</code></pre>
 <p>Für einen anderen Rechner: <code>doctor</code> zuerst. Wenn dort „mount — nein&quot; steht, laufen die Namespaces nicht, und die Batterie-Ergebnisse sind ohne Aussagekraft.</p>
+<p>Wenn dein Rechner kein Linux ist (Windows, macOS): Nutze GitHub Codespaces, WSL2 (Windows) oder Docker — siehe <a href="INSTALLATION.html"><code>INSTALLATION.md</code></a>.</p>
 </article>
 <footer><a href="../index.html">&larr; zur&shy;ck zur AGORIS-Seite</a></footer>
 </body>

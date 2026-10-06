@@ -15,10 +15,14 @@
 cd ai-agent-security
 python3 agoris.py doctor</code></pre>
 <p>Voraussetzung: Linux mit Python ≥ 3.8. Für die volle Wirkung sollten die Namespaces verfügbar sein (<code>doctor</code> sagt das).</p>
+<h3>Windows, macOS — AGORIS läuft trotzdem</h3>
+<p>AGORIS braucht Linux-Kernel-Funktionen (<code>unshare</code>, <code>chroot</code>, <code>seccomp</code>), die es nicht auf Windows oder macOS gibt. Es gibt mehrere Wege, das zu umgehen:</p>
+<table><thead><tr><th>Plattform</th><th>Einfachste Lösung</th><th>Alternative</th></tr></thead><tbody><tr><td><strong>Windows</strong></td><td>WSL2: <code>wsl --install</code> in PowerShell</td><td>Docker Desktop, GitHub Codespaces</td></tr><tr><td><strong>macOS</strong></td><td>GitHub Codespaces (Browser)</td><td>Docker Desktop, Linux-VM</td></tr><tr><td><strong>Linux</strong></td><td>direkt — nichts weiter nötig</td><td>—</td></tr></tbody></table>
+<p>Eine schrittweise Anleitung für alle Plattformen ist in <a href="INSTALLATION.html"><code>INSTALLATION.md</code></a>. Das Repository enthält auch ein <code>Dockerfile</code> und ein <code>.devcontainer/devcontainer.json</code> für Codespaces.</p>
 <h2>Erste Schritte</h2>
 <pre><code class="language-bash">python3 agoris.py run &quot;Lies &#x27;aufgabe.md&#x27; und fasse zusammen.&quot;   # Demo
 python3 agoris.py show research                                  # Policy ansehen
-python3 agoris.py attacks                                        # 13 Versuche
+python3 agoris.py attacks                                        # 14 Versuche
 python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen</code></pre>
 <p>Ein Lauf landet in <code>runs/&lt;zeitstempel&gt;-&lt;policy&gt;/</code>:</p>
 <table><thead><tr><th>Datei</th><th>Inhalt</th></tr></thead><tbody><tr><td><code>audit.jsonl</code></td><td>jedes Ereignis mit Hashkette</td></tr><tr><td><code>bericht.md</code></td><td>lesbarer Bericht</td></tr><tr><td><code>bericht.json</code></td><td>dasselbe für Skripte</td></tr><tr><td><code>jail/</code></td><td>das aufgebaute Gefängnis-Dateisystem</td></tr><tr><td><code>payload/agoris/</code></td><td>Kopie der Runtime (read-only eingebunden)</td></tr></tbody></table>
@@ -64,7 +68,21 @@ python3 agoris.py run &quot;...&quot; -p research -m anthropic</code></pre>
     return {&quot;text&quot;: &#x27;{&quot;thought&quot;: &quot;...&quot;, &quot;tool&quot;: &quot;finish&quot;, &quot;args&quot;: {&quot;answer&quot;: &quot;...&quot;}}&#x27;}
 
 PROVIDERS[&quot;mein&quot;] = _mein_anbieter</code></pre>
+<p>Ein Agent-Provider muss also nie im Gefängnis laufen — er wird vom Wirt aufgerufen, bekommt die Konversation und gibt eine Antwort als JSON zurück. Jeder Provider ist ein &quot;Agent&quot; in diesem Sinne.</p>
 <p>Antwortformat: ein JSON-Objekt mit <code>thought</code>, <code>tool</code> und <code>args</code>. Was sich nicht parsen lässt, landet als Text in <code>finish</code> — ein kaputtes Modell beendet den Lauf, statt ihn hängen zu lassen.</p>
+<h2>Verschiedene Agenten testen</h2>
+<p>Ein &quot;Agent&quot; in AGORIS ist die Kombination aus einer Policy (was er darf) und einem Modell-Provider (wie er antwortet). AGORIS lässt sich damit testen, ob die Isolation bei <strong>jedem</strong> Agenten hält.</p>
+<h3>Schnelltest: alles auf einmal</h3>
+<pre><code class="language-bash">python3 agoris.py test</code></pre>
+<p>Der Test-Harness prüft in vier Phasen:</p>
+<ol><li><strong>doctor</strong> — ob dein Rechner die Namespaces und seccomp bereitstellt</li><li><strong>inspect</strong> — Innenansicht bei jeder Policy</li><li><strong>run</strong> — Agentenlauf mit jedem Provider (Standard: <code>simulated</code>, <code>echo</code>)</li><li><strong>attacks</strong> — die vollständige Angriffsbatterie bei jeder Policy</li></ol>
+<h3>Gezielte Tests</h3>
+<pre><code class="language-bash">python3 agoris.py test --provider simulated        # nur simulated-Provider
+python3 agoris.py test --policy minimal            # nur minimal-Politik
+python3 agoris.py test --only key_leak,cpu_bomb    # nur zwei Angriffe</code></pre>
+<p>Der Harness läuft auch direkt:</p>
+<pre><code class="language-bash">python3 tools/test_sandbox.py --provider simulated,echo --policy minimal</code></pre>
+<p>Beide Wege verwenden dasselbe Skript — <code>agoris.py test</code> ruft <code>tools/test_sandbox.py</code> auf, denn das ist das zentrale Werkzeug für Replizierbarkeit.</p>
 <h2>Eigene Werkzeuge</h2>
 <p>Ein Werkzeug bekommt zwei Dinge: eine Policy (<code>tools.enabled</code>) und eine Funktion in <code>agoris/runtime/tools.py</code>.</p>
 <pre><code class="language-python">def zaehle_zeilen(self, path: str = &quot;&quot;, **_) -&gt; Dict[str, Any]:

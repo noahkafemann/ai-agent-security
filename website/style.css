@@ -544,6 +544,40 @@ footer {
   html { scroll-behavior: auto; }
   .card { opacity: 1; transform: none; }
 }
+
+/* --------------------------------------------------------------- agenten */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 34px 0 26px;
+}
+
+.agent-card {
+  border: 1px solid var(--line);
+  border-left: 2px solid rgba(53, 224, 232, 0.45);
+  border-radius: 10px;
+  padding: 24px;
+  background: linear-gradient(180deg, var(--panel), rgba(8, 11, 19, 0.5));
+  transition: 0.18s ease;
+}
+.agent-card:hover {
+  border-left-color: var(--cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px -16px rgba(53, 224, 232, 0.15);
+}
+
+.agent-card h3 {
+  margin: 0 0 12px;
+  font-family: var(--mono);
+  font-size: 15.5px;
+  color: var(--cyan);
+}
+.agent-card p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
 /* ------------------------------------------------------------- Innenansicht */
 .expect { display: grid; grid-template-columns: 1fr 1.15fr; gap: 26px; margin-bottom: 28px; }
 .expect .col h4 {

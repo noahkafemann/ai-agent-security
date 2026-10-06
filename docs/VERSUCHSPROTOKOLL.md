@@ -13,7 +13,7 @@ Einschränkung genannt, die das Ergebnis betrifft.
 
 1. **Policies definieren** — `minimal` (kein Netz) und `research` (Netz über
    Proxy). Beide als JSON, beide im Wirt durchgesetzt und im Gefängnis gespiegelt.
-2. **Angriffsbatterie schreiben** — 13 Ausbruchversuche mit fester Erwartung.
+2. **Angriffsbatterie schreiben** — 14 Ausbruchversuche mit fester Erwartung.
 3. **Messprotokoll festlegen** — jeder Versuch meldet sich als JSON; Fehlmeldung
    ist schlechter als keine Meldung. Zusätzlich prüft `agoris.py inspect` die
    Umgebung von innen (Soll-Zustand: `/usr/bin` nur mit `python3`, `/work` und
@@ -131,8 +131,8 @@ Sie sind trotzdem gescheitert — aber an den Schichten *darunter*: verworfene
 Capabilities, fehlendes Interface, PID-Namespace. Genau dafür ist die
 Verteidigung in der Tiefe gedacht, und genau das ist hier messbar geworden.
 
-**Die Aussage lautet also nicht "13/13 Schichten haben gehalten", sondern
-"13/13 Versuche sind gescheitert, davon 3 ohne die stärkste Einzelschicht".**
+**Die Aussage lautet also nicht "14/14 Schichten haben gehalten", sondern
+"14/14 Versuche sind gescheitert, davon 3 ohne die stärkste Einzelschicht".**
 
 ### 2. Lauf als root
 
@@ -182,3 +182,6 @@ python3 agoris.py verify runs/<lauf>
 
 Für einen anderen Rechner: `doctor` zuerst. Wenn dort „mount — nein" steht,
 laufen die Namespaces nicht, und die Batterie-Ergebnisse sind ohne Aussagekraft.
+
+Wenn dein Rechner kein Linux ist (Windows, macOS): Nutze GitHub Codespaces,
+WSL2 (Windows) oder Docker — siehe [`INSTALLATION.md`](INSTALLATION.md).

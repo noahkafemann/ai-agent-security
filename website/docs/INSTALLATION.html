@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation &amp; Plattform-Guide</title>
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<article>
+<h1>Installation &amp; Plattform-Guide</h1>
+<p>AGORIS nutzt Linux-Kernel-Funktionen, die es auf Windows und macOS nicht gibt. Dieses Dokument zeigt, wie du AGORIS auf <strong>jedem</strong> Betriebssystem zum Laufen bekommst — mit konkreten Befehlen für jede Plattform.</p>
+<h2>Warum das wichtig ist</h2>
+<table><thead><tr><th>Funktion</th><th>Windows</th><th>macOS</th><th>Linux</th></tr></thead><tbody><tr><td><code>unshare()</code> (Namespaces)</td><td>nein</td><td>nein</td><td>ja</td></tr><tr><td><code>chroot()</code></td><td>nein</td><td>nein</td><td>ja</td></tr><tr><td><code>setrlimit()</code></td><td>nein</td><td>ja (teilweise)</td><td>ja</td></tr><tr><td><code>seccomp</code> (BPF-Filter)</td><td>nein</td><td>nein</td><td>ja</td></tr><tr><td><code>mount()</code> (bind, read-only)</td><td>nein</td><td>nein</td><td>ja</td></tr></tbody></table>
+<p><strong>Fazit:</strong> AGORIS braucht Linux. Auf den anderen Systemen musst du eine Linux-Umgebung schaffen — entweder eine VM, einen Container oder eine Cloud-Entwicklungsumgebung.</p>
+<hr>
+<h2>Plattform-spezifische Anleitung</h2>
+<h3>1. Linux (direkt)</h3>
+<p>Das ist der Standardfall. Alles geht davon aus.</p>
+<pre><code class="language-bash">git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
+python3 agoris.py doctor       # prüft deine Namespaces
+python3 agoris.py test         # kompletter Check</code></pre>
+<p><strong>Voraussetzungen:</strong></p>
+<ul><li>Python ≥ 3.8 (System liefert meist 3.10+)</li><li>Kernel ≥ 3.8 (User-Namespaces)</li><li><code>unshare -Ur true</code> sollte funktionieren</li></ul>
+<p>Falls <code>python3</code> nicht gefunden wird, probiere <code>python</code>:</p>
+<pre><code class="language-bash">python --version   # manche Systeme nennen es &#x27;python&#x27; statt &#x27;python3&#x27;</code></pre>
+<h3>2. Windows</h3>
+<p><strong>Empfehlung: WSL2</strong> (Windows-Subsystem für Linux, Version 2)</p>
+<p>In PowerShell <strong>als Administrator</strong>:</p>
+<pre><code class="language-powershell">wsl --install</code></pre>
+<p>Starte den Rechner neu, wenn Windows danach fragt. Dann öffnest du das neue &quot;Ubuntu&quot;-Fenster und dort:</p>
+<pre><code class="language-bash">sudo apt update &amp;&amp; sudo apt install -y git python3
+git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
+python3 agoris.py doctor</code></pre>
+<p><strong>Hinweis:</strong> In WSL2 funktionieren Namespaces meistens, aber <code>seccomp</code> kann eingeschränkt sein. Verlasse dich auf <code>doctor</code>, nicht auf Annahmen.</p>
+<p><strong>Alternative: Docker Desktop</strong></p>
+<pre><code class="language-powershell"># Docker Desktop installieren: https://www.docker.com/products/docker-desktop
+docker build -t agoris https://github.com/noahkafemann/ai-agent-security.git
+docker run --rm --privileged agoris python3 agoris.py doctor</code></pre>
+<p><strong>Alternative: GitHub Codespaces</strong></p>
+<p>Öffne das Repository in <code>github.dev</code> oder starte einen CodeSpace — das startet automatisch eine Linux-VM mit allen Kernel-Funktionen.</p>
+<h3>3. macOS</h3>
+<p><strong>Empfehlung: GitHub Codespaces</strong></p>
+<p>Öffne das Repository in <code>github.dev</code> oder starte einen CodeSpace über die GitHub-Website. Codespaces startet eine Linux-VM mit allen Kernel- Funktionen automatisch — keine lokale Installation nötig.</p>
+<p><strong>Alternative: Docker Desktop für Mac</strong></p>
+<pre><code class="language-bash"># Docker Desktop installieren: https://www.docker.com/products/docker-desktop
+docker build -t agoris .
+docker run --rm --privileged agoris python3 agoris.py doctor</code></pre>
+<blockquote>Wichtig: Der Container braucht <code>--privileged</code>, sonst schlägt <code>unshare()</code> mit <code>EPERM</code> fehl und die Namespaces sind inaktiv.</blockquote>
+<p><strong>Alternative: Linux-VM</strong></p>
+<p>Installiere VirtualBox, UTM oder Parallels und eine Ubuntu-ISO:</p>
+<pre><code class="language-bash"># In der VM:
+sudo apt update &amp;&amp; sudo apt install -y git python3
+git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
+python3 agoris.py doctor</code></pre>
+<h3>4. GitHub Codespaces (alles, egal vom Betriebssystem)</h3>
+<p>Codespaces ist die einfachste Möglichkeit, AGORIS ohne lokale Installation zu starten. Das <code>.devcontainer/devcontainer.json</code> im Repository stellt sicher, dass alle Kernel-Funktionen verfügbar sind.</p>
+<ol><li>Gehe zu https://github.com/noahkafemann/ai-agent-security</li><li>Klicke auf den grünen &quot;Code&quot;-Button → &quot;Open with Codespaces&quot;</li><li>Der CodeSpace startet automatisch mit allen Voraussetzungen</li><li>Im integrierten Terminal:</li></ol>
+<pre><code class="language-bash">python3 agoris.py doctor
+python3 agoris.py test</code></pre>
+<hr>
+<h2>Fehlersuche</h2>
+<h3><code>python3: command not found</code></h3>
+<pre><code class="language-bash"># Prüfe, wie Python bei dir heißt
+python --version    # statt python3
+which python        # Pfad herausfinden
+# Dann:
+python agoris.py doctor</code></pre>
+<h3><code>git clone</code> schlägt fehl (Schule)</h3>
+<p>In vielen Schulen ist der ausgehende HTTPS-Verkehr blockiert. Alternativ lade das Archiv statt:</p>
+<pre><code class="language-bash">curl -L https://github.com/noahkafemann/ai-agent-security/archive/refs/heads/main.tar.gz \
+  | tar xz
+cd ai-agent-security-main</code></pre>
+<p>Falls auch <code>curl</code> blockiert ist: Nutze die Schulkopie der Dateien, die dein Lehrer bereitgestellt hat, oder GitHub Codespaces.</p>
+<h3>Namespaces nicht verfügbar (<code>errno 1</code> in <code>doctor</code>)</h3>
+<p>Das passiert, wenn:</p>
+<ul><li>Der Kernel User-Namespaces deaktiviert hat</li><li>Du nicht die nötigen Rechte hast</li></ul>
+<p>In WSL2: Prüfe <code>wsl --status</code> und stelle sicher, dass du WSL2 (nicht WSL1) nutzt. In Docker: Verwende <code>--privileged</code>.</p>
+<h3><code>seccomp</code> inaktiv</h3>
+<p>Das ist <strong>kein Fehler</strong> — es ist eine bekannte Einschränkung. AGORIS zeigt genau das an: Die Angriffe 10, 11, 12 fallen dann ohne die stärkste Einzelschicht. Die Übrigen halten weiterhin. Siehe <a href="VERSUCHSPROTOKOLL.html"><code>VERSUCHSPROTOKOLL.md</code></a>, Abschnitt &quot;Einschränkungen&quot;.</p>
+<hr>
+<h2>Ohne Installation testen</h2>
+<p>Willst du zuerst nur sehen, wie AGORIS aussieht, ohne etwas zu installieren?</p>
+<pre><code class="language-bash"># Nur der Website-Ordner reicht:
+open website/index.html
+# oder:
+firefox website/index.html</code></pre>
+<p>Die Seite ist vollständig offline — sie lädt nichts von außen nach.</p>
+</article>
+<footer><a href="../index.html">&larr; zur&shy;ck zur AGORIS-Seite</a></footer>
+</body>
+</html>

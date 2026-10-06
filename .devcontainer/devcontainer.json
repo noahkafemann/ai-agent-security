@@ -1,0 +1,16 @@
+{
+  "name": "AGORIS",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "runArgs": {
+    "cap-add": ["ALL"],
+    "security-opt": ["apparmor:unconfined", "seccomp:unconfined"],
+    "privileged": true
+  },
+  "forwardPorts": [],
+  "customizations": {
+    "vscode": {
+      "extensions": []
+    }
+  },
+  "postCreateCommand": "python3 agoris.py doctor"
+}
