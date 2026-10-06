@@ -18,8 +18,9 @@
       <li><a href="#schichten">Schichten</a></li>
       <li><a href="#nachweis">Nachweis</a></li>
       <li><a href="#agenten">Agenten</a></li>
-      <li><a href="#start">Start</a></li>
-      <li><a href="#blick">Innenansicht</a></li>
+       <li><a href="#start">Start</a></li>
+       <li><a href="#plattformen">Plattformen</a></li>
+       <li><a href="#blick">Innenansicht</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
       <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
     </ul>
@@ -326,6 +327,36 @@ ALLE 10 TESTS BESTANDEN</pre>
     <p class="note">Installation: <code>git clone https://github.com/noahkafemann/ai-agent-security.git</code> — mehr braucht nichts.</p>
   </section>
 
+  <section id="plattformen" class="platform">
+    <p class="eyebrow">Plattformen</p>
+    <h2>Windows? macOS? — AGORIS läuft trotzdem.</h2>
+    <p class="sub">
+      AGORIS nutzt Linux-Kernel-Funktionen (Namespaces, chroot, seccomp). Auf
+      Windows und macOS gibt es diese nicht direkt — deshalb stellt das
+      Projekt mehrere Wege bereit, auf jeden Betriebssystem.
+    </p>
+    <div class="agent-grid">
+      <article class="agent-card">
+        <h3>Linux</h3>
+        <p>Direkt. <code>git clone</code>, <code>python3 agoris.py doctor</code>.</p>
+      </article>
+      <article class="agent-card">
+        <h3>Windows</h3>
+        <p>WSL2 (<code>wsl --install</code>) oder Docker Desktop. Alternativ
+        GitHub Codespaces im Browser.</p>
+      </article>
+      <article class="agent-card">
+        <h3>macOS</h3>
+        <p>Docker Desktop oder GitHub Codespaces. Beide stellen eine Linux-VM
+        mit allen Kernel-Funktionen bereit.</p>
+      </article>
+    </div>
+    <p class="foot">
+      Eine Schritt-für-Schritt-Anleitung für alle Plattformen findest du in
+      <a href="docs/INSTALLATION.html">docs/INSTALLATION</a>.
+    </p>
+  </section>
+
   <section id="grenzen" class="limits">
     <p class="eyebrow">Ehrliche Grenzen</p>
     <h2>Was das nicht ist</h2>
@@ -369,6 +400,7 @@ ALLE 10 TESTS BESTANDEN</pre>
         <li><a href="docs/ARCHITEKTUR.html">Architektur</a></li>
         <li><a href="docs/VERSUCHSPROTOKOLL.html">Versuchsprotokoll</a></li>
         <li><a href="docs/ANWENDUNG.html">Anwendung</a></li>
+        <li><a href="docs/INSTALLATION.html">Installation (alle Plattformen)</a></li>
       </ul>
     </div>
     <div>

@@ -2,4 +2,8 @@ __pycache__/
 *.pyc
 runs/
 test_runs/
+*.egg-info/
+.eggs/
+dist/
+build/
 .DS_Store

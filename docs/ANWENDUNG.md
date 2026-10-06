@@ -13,6 +13,21 @@ python3 agoris.py doctor
 Voraussetzung: Linux mit Python ≥ 3.8. Für die volle Wirkung sollten die
 Namespaces verfügbar sein (`doctor` sagt das).
 
+### Windows, macOS — AGORIS läuft trotzdem
+
+AGORIS braucht Linux-Kernel-Funktionen (`unshare`, `chroot`, `seccomp`), die es
+nicht auf Windows oder macOS gibt. Es gibt mehrere Wege, das zu umgehen:
+
+| Plattform | Einfachste Lösung | Alternative |
+|---|---|---|
+| **Windows** | WSL2: `wsl --install` in PowerShell | Docker Desktop, GitHub Codespaces |
+| **macOS** | GitHub Codespaces (Browser) | Docker Desktop, Linux-VM |
+| **Linux** | direkt — nichts weiter nötig | — |
+
+Eine schrittweise Anleitung für alle Plattformen ist in
+[`INSTALLATION.md`](INSTALLATION.md). Das Repository enthält auch ein
+`Dockerfile` und ein `.devcontainer/devcontainer.json` für Codespaces.
+
 ## Erste Schritte
 
 ```bash

@@ -182,3 +182,6 @@ python3 agoris.py verify runs/<lauf>
 
 Für einen anderen Rechner: `doctor` zuerst. Wenn dort „mount — nein" steht,
 laufen die Namespaces nicht, und die Batterie-Ergebnisse sind ohne Aussagekraft.
+
+Wenn dein Rechner kein Linux ist (Windows, macOS): Nutze GitHub Codespaces,
+WSL2 (Windows) oder Docker — siehe [`INSTALLATION.md`](INSTALLATION.md).

@@ -8,7 +8,10 @@
     python3 agoris.py verify runs/<lauf>
 
 Ohne Argumente laeuft ein kleiner Demo-Lauf mit der Policy ``minimal``.
-Nur Standardbibliothek, Python >= 3.8, nur Linux.
+Nur Standardbibliothek, Python >= 3.8.
+
+Brauchst du Windows oder macOS? Siehe docs/INSTALLATION.md oder nutze
+Docker (Dockerfile) oder GitHub Codespaces (.devcontainer/).
 """
 
 import os

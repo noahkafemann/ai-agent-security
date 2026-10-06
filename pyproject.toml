@@ -10,12 +10,14 @@ readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [{name = "Noah Kafemann"}]
-keywords = ["sandbox", "security", "ki", "agent", "linux", "namespaces", "seccomp"]
+keywords = ["sandbox", "security", "ki", "agent", "linux", "namespaces", "seccomp",
+            "docker", "codespaces", "wsl2"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
     "Topic :: Security",
+    "Topic :: System :: Operating System Kernels :: Linux",
 ]
 
 [project.scripts]

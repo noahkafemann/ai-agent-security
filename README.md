@@ -47,29 +47,97 @@ Betriebssystems. Was fehlen wuerde:
   mount()        bindet Dateien nur lesbar ein
 ```
 
-**Der Weg nach Linux, in aufsteigender Reihenfolge:**
+**Der Weg nach Linux — in aufsteigender Einfachheit:**
 
 | Weg | Aufwand | Für |
 |---|---|---|
-| **WSL2** — in PowerShell `wsl --install`, dann Ubuntu öffnen | klein | die meisten Schulfälle |
-| Linux-VM (VirtualBox + Ubuntu-ISO) | mittel | wenn WSL2 nicht verfügbar ist |
-| Linux-Server in der Schulumgebung | keiner | wenn einer vorhanden ist |
+| **GitHub Codespaces** — im Browser | minim | die einfachste Lösung, keine Installation |
+| **WSL2** — `wsl --install` in PowerShell | klein | die meisten Schulfälle |
+| **Docker** — `docker run --privileged` | klein | wenn Docker Desktop verfügbar ist |
+| **Linux-VM** (VirtualBox + Ubuntu-ISO) | mittel | wenn WSL2 nicht verfügbar ist |
+| **Linux-Server in der Schulumgebung** | keiner | wenn einer vorhanden ist |
+| **Ein anderer Rechner mit Linux** | — | — |
 
-In WSL2 geht es so weiter:
+### GitHub Codespaces (ohne Installation)
+
+Öffne das Repository in <kbd>.</kbd> (github.dev) oder starte einen CodeSpace.
+Das `.devcontainer/devcontainer.json`-Profil stellt automatisch eine Linux-VM mit
+allen Kernel-Funktionen bereit:
 
 ```bash
-# PowerShell (einmalig):
-wsl --install
+python3 agoris.py doctor    # im Codespace-Terminal
+python3 agoris.py test
+```
 
-# danach das WSL-Terminal öffnen und dort:
+### WSL2
+
+In PowerShell **als Administrator**:
+
+```powershell
+wsl --install
+```
+
+Dann im Ubuntu-Terminal:
+
+```bash
 sudo apt update && sudo apt install -y git python3
-cd ~/ai-agent-security        # bzw. den Ordner unter /mnt/c/Users/...
+git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
 python3 agoris.py doctor
 ```
 
 Was danach gilt, sagt `doctor`: In WSL2 funktionieren die Namespaces meistens,
-manche Schichten sind je nach Kernel eingeschränkt. **Verlass dich auf `doctor`,
+manche Schichten sind je nach Kernel eingeschränkt. **Verlasse dich auf `doctor`,
 nicht auf meine Einschätzung** — es misst deinen Rechner, nicht den Durchschnitt.
+
+### Docker
+
+```bash
+# Docker Desktop installieren, dann:
+docker build -t agoris .
+docker run --rm --privileged agoris python3 agoris.py doctor
+```
+
+---
+
+## Du hast macOS? Dann lies das zuerst
+
+AGORIS nutzt Linux-Kernel-Funktionen (`unshare`, `chroot`, `seccomp`), die
+macOS (XNU-Kernel) nicht hat. Das Programm erkennt das und bricht sauber ab
+mit Exit-Code 3.
+
+**Schnellste Lösung — GitHub Codespaces:**
+
+Öffne das Repository in <kbd>.</kbd> oder starte einen CodeSpace auf GitHub.
+Codespaces startet eine Linux-VM mit allen Kernel-Funktionen automatisch.
+Keine lokale Installation nötig.
+
+```bash
+python3 agoris.py doctor    # im Codespace-Terminal
+python3 agoris.py test
+```
+
+**Alternative mit Docker Desktop für Mac:**
+
+```bash
+# Docker Desktop installieren: https://www.docker.com/products/docker-desktop
+docker build -t agoris .
+docker run --rm --privileged agoris python3 agoris.py doctor
+```
+
+**Alternative mit Linux-VM:**
+
+Installiere VirtualBox, UTM oder Parallels mit einer Ubuntu-ISO, dann:
+
+```bash
+# In der VM:
+git clone https://github.com/noahkafemann/ai-agent-security.git
+cd ai-agent-security
+python3 agoris.py doctor
+```
+
+Eine schrittweise Anleitung für alle Plattformen findest du in
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md).
 
 ---
 
@@ -854,11 +922,41 @@ runs/20261004-121335-minimal/
 └── payload/agoris/  Kopie der Runtime, read-only eingebunden
 ```
 
+### Windows-Button: Hilft dir weiter
+
+```bash
+# Auf jedem System: das richtige starten
+make doctor          # Linux/macOS mit Docker, Windows mit WSL2/Docker
+# oder:
+./run.sh doctor      # Linux/macOS, erkennt automatisch
+# oder auf Windows:
+.\run.ps1 doctor    # PowerShell, erkennt WSL2/Docker/Codespaces
+```
+
+Beide Skripte prüfen dein Betriebssystem und starten AGORIS auf die
+passende Weise — direkt auf Linux, in WSL2 auf Windows, in Docker auf
+macOS, oder sie zeigen dir, wie du Codespaces nutzt.
+
+### Container & Codespaces
+
+- **Docker:** `Dockerfile` ist im Repository. Starte mit:
+  ```bash
+  docker build -t agoris .
+  docker run --rm --privileged -v "$PWD/runs:/agoris/runs" agoris python3 agoris.py test
+  ```
+- **GitHub Codespaces:** Öffne das Repository in `github.dev` oder starte
+  einen CodeSpace. Das `.devcontainer/devcontainer.json` stellt sicher, dass
+  alle Linux-Kernel-Funktionen verfügbar sind.
+
+Details und Schritt-für-Schritt-Anleitung in
+[`docs/INSTALLATION.md`](docs/INSTALLATION.md).
+
 ## Weitere Dokumentation
 
 - [`docs/ARCHITEKTUR.md`](docs/ARCHITEKTUR.md) — Schichten im Detail, Fehler beim Bauen
 - [`docs/VERSUCHSPROTOKOLL.md`](docs/VERSUCHSPROTOKOLL.md) — Messaufbau, Messwerte, Einschränkungen
 - [`docs/ANWENDUNG.md`](docs/ANWENDUNG.md) — eigene Policies, Werkzeuge, Auswertung
+- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — Installation auf Windows, macOS und Linux
 
 ## Lizenz
 

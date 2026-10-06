@@ -15,6 +15,10 @@
 cd ai-agent-security
 python3 agoris.py doctor</code></pre>
 <p>Voraussetzung: Linux mit Python ≥ 3.8. Für die volle Wirkung sollten die Namespaces verfügbar sein (<code>doctor</code> sagt das).</p>
+<h3>Windows, macOS — AGORIS läuft trotzdem</h3>
+<p>AGORIS braucht Linux-Kernel-Funktionen (<code>unshare</code>, <code>chroot</code>, <code>seccomp</code>), die es nicht auf Windows oder macOS gibt. Es gibt mehrere Wege, das zu umgehen:</p>
+<table><thead><tr><th>Plattform</th><th>Einfachste Lösung</th><th>Alternative</th></tr></thead><tbody><tr><td><strong>Windows</strong></td><td>WSL2: <code>wsl --install</code> in PowerShell</td><td>Docker Desktop, GitHub Codespaces</td></tr><tr><td><strong>macOS</strong></td><td>GitHub Codespaces (Browser)</td><td>Docker Desktop, Linux-VM</td></tr><tr><td><strong>Linux</strong></td><td>direkt — nichts weiter nötig</td><td>—</td></tr></tbody></table>
+<p>Eine schrittweise Anleitung für alle Plattformen ist in <a href="INSTALLATION.html"><code>INSTALLATION.md</code></a>. Das Repository enthält auch ein <code>Dockerfile</code> und ein <code>.devcontainer/devcontainer.json</code> für Codespaces.</p>
 <h2>Erste Schritte</h2>
 <pre><code class="language-bash">python3 agoris.py run &quot;Lies &#x27;aufgabe.md&#x27; und fasse zusammen.&quot;   # Demo
 python3 agoris.py show research                                  # Policy ansehen
