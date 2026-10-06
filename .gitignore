@@ -1,4 +1,5 @@
 __pycache__/
 *.pyc
 runs/
+test_runs/
 .DS_Store

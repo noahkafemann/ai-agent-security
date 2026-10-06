@@ -14,9 +14,14 @@ cd ai-agent-security
 python3 agoris.py doctor      # kann dein Rechner das überhaupt?
 python3 agoris.py inspect     # so sieht es INSIDE aus, mitten im Käfig
 python3 agoris.py attacks     # 14 Versuche, den Käfig zu verlassen
+python3 agoris.py test        # alles in einem: Sandbox, Agenten, Angriffe
 ```
 
 Alles über Standardbibliothek. Python ≥ 3.8. Kein Docker, kein `pip`, kein `gcc`.
+Der Befehl `test` startet einen kompletten Check: Er prüft deine Umgebung,
+zeigt die Innenansicht, lässt den simulierten und den Echo-Agenten arbeiten
+sowie durchläuft die ganze Angriffsbatterie — in kurzer Zeit und mit klarem
+Überblick, welche Schichten dabei aktiv sind.
 
 ---
 
@@ -292,6 +297,21 @@ git clone https://github.com/noahkafemann/ai-agent-security.git
 cd ai-agent-security
 ```
 
+Falls `git` fehlt oder der Klon fehlschlägt, liegt es an der URL oder an
+Netzwerk-Restriktionen in der Schulumgebung. In vielen Schulen ist HTTPS nach außen
+nicht offen. Dann hilft ein HTTPS-Proxy oder: lade das Archiv statt:
+```bash
+# Alternative, wenn git blockiert ist:
+curl -L https://github.com/noahkafemann/ai-agent-security/archive/refs/heads/main.tar.gz \
+  | tar xz
+cd ai-agent-security-main
+```
+
+Falls `python3` nicht gefunden wird, prüfe, ob `python` heißt:
+```bash
+python --version   # manche Systeme nennen es 'python' statt 'python3'
+```
+
 ### Schritt 2 — Prüft, ob euer Rechner mitmacht
 
 ```bash
@@ -437,6 +457,42 @@ python3 agoris.py run "Recherchiere etwas" -p research
 `research` erlaubt Netz — aber nur über den Proxy, und nur für
 `wikipedia.org`, `arxiv.org`, `example.org`. Alles andere bekommt
 `403 Forbidden` mit Begründung.
+
+### Schritt 8 — Testet alle Agenten auf einen Schlag
+
+```bash
+python3 agoris.py test
+```
+
+Dieser Befehl startet den Test-Harness, der in kurzer Zeit alles prüft:
+
+1. **`doctor`** — ob dein Rechner die Namespaces und seccomp bereitstellt
+2. **`inspect`** — wie das Gefängnis von innen aussieht (bei jeder Policy)
+3. **`run`** — einen Agentenlauf mit jedem verfügbaren Provider (Standard:
+   `simulated` und `echo`)
+4. **`attacks`** — die vollständige Angriffsbatterie
+
+Ergebnis:
+
+```
+===============================================================
+ALLE 8 TESTS BESTANDEN
+===============================================================
+```
+
+Du kannst auch gezielt auswählen:
+
+```bash
+python3 agoris.py test --provider simulated        # nur den simulierten Agent
+python3 agoris.py test --policy minimal            # nur die minimal-Politik
+python3 agoris.py test --only key_leak,cpu_bomb    # nur zwei Angriffe
+```
+
+Der Harness läuft auch direkt:
+
+```bash
+python3 tools/test_sandbox.py —provider simulated,echo —policy minimal
+```
 
 ---
 
@@ -782,6 +838,7 @@ gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 | `python3 agoris.py policies` | verfügbare Policies |
 | `python3 agoris.py show <name>` | Policy im Detail |
 | `python3 agoris.py run "…" -p <policy>` | Agentenlauf |
+| `python3 agoris.py test` | Sandbox gegen verschiedene Agenten testen |
 | `python3 agoris.py attacks` | Ausbruchversuche |
 | `python3 agoris.py verify <lauf…>` | Audit-Hashkette prüfen, mehrere Pfade möglich |
 

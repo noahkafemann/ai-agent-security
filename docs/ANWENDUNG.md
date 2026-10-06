@@ -18,7 +18,7 @@ Namespaces verfügbar sein (`doctor` sagt das).
 ```bash
 python3 agoris.py run "Lies 'aufgabe.md' und fasse zusammen."   # Demo
 python3 agoris.py show research                                  # Policy ansehen
-python3 agoris.py attacks                                        # 13 Versuche
+python3 agoris.py attacks                                        # 14 Versuche
 python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen
 ```
 
@@ -126,9 +126,50 @@ def _mein_anbieter(messages, tools):
 PROVIDERS["mein"] = _mein_anbieter
 ```
 
+Ein Agent-Provider muss also nie im Gefängnis laufen — er wird vom Wirt
+aufgerufen, bekommt die Konversation und gibt eine Antwort als JSON zurück.
+Jeder Provider ist ein "Agent" in diesem Sinne.
+
 Antwortformat: ein JSON-Objekt mit `thought`, `tool` und `args`. Was sich nicht
 parsen lässt, landet als Text in `finish` — ein kaputtes Modell beendet den
 Lauf, statt ihn hängen zu lassen.
+
+## Verschiedene Agenten testen
+
+Ein "Agent" in AGORIS ist die Kombination aus einer Policy (was er darf) und
+einem Modell-Provider (wie er antwortet). AGORIS lässt sich damit testen,
+ob die Isolation bei **jedem** Agenten hält.
+
+### Schnelltest: alles auf einmal
+
+```bash
+python3 agoris.py test
+```
+
+Der Test-Harness prüft in vier Phasen:
+
+1. **doctor** — ob dein Rechner die Namespaces und seccomp bereitstellt
+2. **inspect** — Innenansicht bei jeder Policy
+3. **run** — Agentenlauf mit jedem Provider (Standard: `simulated`, `echo`)
+4. **attacks** — die vollständige Angriffsbatterie bei jeder Policy
+
+### Gezielte Tests
+
+```bash
+python3 agoris.py test --provider simulated        # nur simulated-Provider
+python3 agoris.py test --policy minimal            # nur minimal-Politik
+python3 agoris.py test --only key_leak,cpu_bomb    # nur zwei Angriffe
+```
+
+Der Harness läuft auch direkt:
+
+```bash
+python3 tools/test_sandbox.py --provider simulated,echo --policy minimal
+```
+
+Beide Wege verwenden dasselbe Skript — `agoris.py test` ruft
+`tools/test_sandbox.py` auf, denn das ist das zentrale Werkzeug für
+Replizierbarkeit.
 
 ## Eigene Werkzeuge
 

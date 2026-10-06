@@ -5,6 +5,7 @@
     python3 agoris.py show research       eine Policy im Detail
     python3 agoris.py run "Aufgabe" -p research
     python3 agoris.py attacks             Angriffsbatterie ausfuehren
+    python3 agoris.py test                Sandbox gegen verschiedene Agenten testen
     python3 agoris.py verify runs/<name>  Audit-Hashkette pruefen
 
 Ohne Argumente startet ein kleiner Demo-Lauf mit der Policy ``minimal`` - so
@@ -68,6 +69,7 @@ def doctor(args: argparse.Namespace = None) -> int:
     libc = ctypes.CDLL("libc.so.6", use_errno=True)
     libc.unshare.restype = ctypes.c_int
     libc.unshare.argtypes = [ctypes.c_int]
+    ns_ok = True
     for name in benoetigt:
         pid = os.fork()
         if pid == 0:
@@ -77,7 +79,10 @@ def doctor(args: argparse.Namespace = None) -> int:
             os._exit(0 if rc == 0 else min(err, 120))
         _pid, status = os.waitpid(pid, 0)
         code = os.WEXITSTATUS(status)
-        print(f"  {name:<8}{'moeglich' if code == 0 else f'nein (errno {code})'}")
+        ok = code == 0
+        if not ok:
+            ns_ok = False
+        print(f"  {name:<8}{'moeglich' if ok else f'nein (errno {code})'}")
 
     print()
     print("seccomp:")
@@ -98,6 +103,18 @@ def doctor(args: argparse.Namespace = None) -> int:
     print("Hinweis: Ohne root sind die Namespaces ueblicherweise nicht zugaenglich.")
     print("AGORIS laeuft dann zwar, aber ohne wirksame Isolation - bitte nicht")
     print("als Beleg fuer Sicherheit werten.")
+    print()
+
+    if not ns_ok:
+        print("Achtung: Mindestens ein Namespace ist nicht verfuegbar.")
+        print("Die Messung kann auf diesem Rechner nicht belastbar ausfallen.")
+        print("Tipp: Nutze WSL2 (Windows) oder eine Linux-VM mit User-Namespaces.")
+        print()
+    else:
+        print("Alle Namespaces verfuegbar - weiter gehts mit:")
+        print("  python3 agoris.py inspect    # Innenansicht")
+        print("  python3 agoris.py attacks    # 14 Ausbruchversuche")
+        print("  python3 agoris.py test       # Komplettcheck aller Agenten")
     return 0
 
 
@@ -347,6 +364,40 @@ def cmd_attacks(args: argparse.Namespace) -> int:
     return 0 if daten["leaked"] == 0 and daten.get("errors", 0) == 0 else 2
 
 
+# -------------------------------------------------------------------- test
+def cmd_test(args: argparse.Namespace) -> int:
+    """Fuehrt den Test-Harness aus, der die Sandbox gegen verschiedene
+    Agenten-Konfigurationen prueft (Policy x Provider).
+
+    Der Harness liegt unter ``tools/test_sandbox.py`` und kann auch direkt
+    gestartet werden. Er prueft: doctor, inspect, Agenten-Laeufe mit
+    verschiedenen Providern und die Angriffsbatterie.
+    """
+    import importlib.util
+    import subprocess
+
+    tools_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools")
+    script = os.path.join(tools_dir, "test_sandbox.py")
+    if not os.path.exists(script):
+        print(f"Test-Harness nicht gefunden: {script}", file=sys.stderr)
+        return 2
+
+    cmd = [sys.executable, script]
+    if args.provider:
+        cmd += ["--provider", args.provider]
+    if args.policy:
+        cmd += ["--policy", args.policy]
+    if args.only:
+        cmd += ["--only", args.only]
+
+    try:
+        proc = subprocess.run(cmd, cwd=os.path.dirname(tools_dir) or ".")
+        return proc.returncode
+    except KeyboardInterrupt:
+        print("\nAbgebrochen.", file=sys.stderr)
+        return 130
+
+
 # -------------------------------------------------------------------- verify
 def cmd_verify(args: argparse.Namespace) -> int:
     schlechter: List[str] = []
@@ -405,6 +456,14 @@ def build_parser() -> argparse.ArgumentParser:
     angriff.add_argument("--timeout", type=float, default=20.0)
     angriff.add_argument("--only", help="nur diese Angriffe (kommagetrennt)")
     angriff.set_defaults(func=cmd_attacks)
+
+    test = sub.add_parser("test", help="Sandbox gegen verschiedene Agenten testen")
+    test.add_argument("--provider", default="simulated,echo",
+                      help="Komma-getrennte Provider (Standard: simulated,echo)")
+    test.add_argument("--policy", default="minimal,research",
+                      help="Komma-getrennte Policies (Standard: minimal,research)")
+    test.add_argument("--only", help="nur bestimmte Angriffe (kommagetrennt)")
+    test.set_defaults(func=cmd_test)
 
     pruef = sub.add_parser("verify", help="Audit-Hashkette pruefen (mehrere Pfade moeglich)")
     pruef.add_argument("run_dir", nargs="+", help="Laufordner oder audit.jsonl")

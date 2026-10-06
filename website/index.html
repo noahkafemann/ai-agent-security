@@ -17,6 +17,7 @@
       <li><a href="#idee">Idee</a></li>
       <li><a href="#schichten">Schichten</a></li>
       <li><a href="#nachweis">Nachweis</a></li>
+      <li><a href="#agenten">Agenten</a></li>
       <li><a href="#start">Start</a></li>
       <li><a href="#blick">Innenansicht</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
@@ -38,9 +39,15 @@
       Ressourcengrenzen, seccomp und einem Richtlinien-Proxy — ohne Docker,
       ohne <code>pip</code>, ohne Abhängigkeiten.
     </p>
+    <p class="lede-sub">
+      <b>Was ist ein "Agent" hier?</b> Jede Kombination aus Policy (was er darf) und
+      Modell-Provider (wie er antwortet). AGORIS lässt sich damit testen, ob die
+      Isolation bei <i>jedem</i> Agenten hält — nicht nur bei einem.
+    </p>
     <div class="cta-row">
       <a class="btn primary" href="#start">Anleitung</a>
       <a class="btn" href="#nachweis">14 Ausbruchversuche</a>
+      <a class="btn" href="#agenten">Agenten testen</a>
     </div>
     <details class="peek" open>
       <summary>So sieht es auf einem echten Rechner aus</summary>
@@ -197,6 +204,54 @@
     </table>
   </section>
 
+  <section id="agenten" class="agenten">
+    <p class="eyebrow">Agenten testen</p>
+    <h2>Verschiedene Agenten. Eine Sandbox.</h2>
+    <p class="sub">
+      Ein "Agent" in AGORIS ist die Kombination aus einer <b>Policy</b> (was der
+      Agent darf: Rechenzeit, Speicher, Dateien, Netz) und einem
+      <b>Modell-Provider</b> (wie er antwortet: simuliert, echo, oder ein echtes
+      Modell wie Anthropic Claude).
+    </p>
+    <div class="agent-grid">
+      <article class="agent-card">
+        <h3><code>simulated</code></h3>
+        <p>Deterministisch, ohne Netz. Ruft in fester Folge <code>list_dir</code>,
+        <code>write_file</code>, <code>finish</code>. Für reproduzierbare
+        Läufe und Vergleiche.</p>
+      </article>
+      <article class="agent-card">
+        <h3><code>echo</code></h3>
+        <p>Minimal-Anbieter: gibt die letzte Nachricht zurück. Für
+        Verbindungstests — zeigt, dass der Kanal Wirt↔Agent funktioniert.</p>
+      </article>
+      <article class="agent-card">
+        <h3><code>anthropic</code></h3>
+        <p>Echtes Sprachmodell über die Anthropic-API. Der API-Schlüssel liegt
+        <em>im Wirt</em>, nie im Gefängnis. Testbar mit
+        <code>AGORIS_API_KEY=… AGORIS_MODEL=…</p>
+      </article>
+    </div>
+    <p class="sub">
+      Der Befehl <code>python3 agoris.py test</code> durchläuft alle diese
+      Provider mit jeder Policy — doctor, inspect, run, attacks — und meldet
+      klar, welche Schichten aktiv waren. So wird sichtbar, ob die Isolation
+      bei <b>jedem</b> Agenten hält, nicht nur bei einem.
+    </p>
+    <pre><span class="c-p">$</span> python3 agoris.py test
+[1/4] doctor ...     OK
+[2/4] inspect:minimal ... OK
+[2/4] inspect:research ... OK
+[3/4] run:minimal/simulated ... OK
+[3/4] run:minimal/echo ... OK
+[3/4] run:research/simulated ... OK
+[3/4] run:research/echo ... OK
+[4/4] attacks:minimal ... OK
+[4/4] attacks:research ... OK
+
+ALLE 10 TESTS BESTANDEN</pre>
+  </section>
+
   <section id="blick" class="inspect">
     <p class="eyebrow">Innenansicht</p>
     <h2>So sieht der Käfig von innen aus</h2>
@@ -244,7 +299,7 @@
 
   <section id="start" class="start">
     <p class="eyebrow">Anleitung</p>
-    <h2>Drei Befehle bis zum ersten Lauf</h2>
+    <h2>Vier Schritte bis zum ersten Lauf</h2>
     <ol class="steps">
       <li>
         <h3>Prüfen, was der Rechner kann</h3>
@@ -261,8 +316,14 @@
         <pre><span class="c-p">$</span> python3 agoris.py run "Aufgabe" -p research</pre>
         <p>Bericht, Audit-Log und JSON landen unter <code>runs/&lt;zeit&gt;/</code>.</p>
       </li>
+      <li>
+        <h3>Alle Agenten testen</h3>
+        <pre><span class="c-p">$</span> python3 agoris.py test</pre>
+        <p>Prüft doctor, inspect, Agentenlauf mit <code>simulated</code> und <code>echo</code>-Provider, und die volle Angriffsbatterie — in einem Durchlauf.</p>
+      </li>
     </ol>
     <p class="note">Nur Standardbibliothek. Python ≥ 3.8. Kein Docker, kein pip, kein gcc.</p>
+    <p class="note">Installation: <code>git clone https://github.com/noahkafemann/ai-agent-security.git</code> — mehr braucht nichts.</p>
   </section>
 
   <section id="grenzen" class="limits">
