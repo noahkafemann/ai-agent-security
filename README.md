@@ -58,6 +58,24 @@ Betriebssystems. Was fehlen wuerde:
 | **Linux-Server in der Schulumgebung** | keiner | wenn einer vorhanden ist |
 | **Ein anderer Rechner mit Linux** | — | — |
 
+### Einfacher Start auf Windows (empfohlen)
+
+Das Repository enthält Startskripte, die automatisch WSL2, Docker oder
+Codespaces erkennen:
+
+```cmd
+REM In cmd.exe:
+run.cmd doctor
+
+REM In PowerShell:
+.\run.ps1 doctor
+```
+
+Diese Skripte:
+1. Prüfen ob WSL2 installiert ist → führen AGORIS dort aus
+2. Falls nicht: Prüfen ob Docker Desktop läuft → starten Container mit `--privileged`
+3. Falls keins: Zeigen klare Installationsanleitung für WSL2, Docker, Codespaces
+
 ### GitHub Codespaces (ohne Installation)
 
 Öffne das Repository in <kbd>.</kbd> (github.dev) oder starte einen CodeSpace.
@@ -451,7 +469,29 @@ Arbeitsstand vor dem Ende über den Kanal an den Wirt, und der legt ihn unter
 `ausgabe/` ab. Das Verzeichnis `runs/<lauf>/jail/` ist danach leer — das ist kein
 Fehler, das ist der flüchtige Käfig.
 
-### Schritt 5 — Lasst ihn ausbrechen
+### Schritt 5 — Misst die Sandbox-Performance
+
+```bash
+python3 agoris.py benchmark
+```
+
+Erwartet:
+
+```
+Nativ (keine Sandbox):     0.234s
+Im Sandbox:                0.258s
+Overhead:                  10.3%
+Schichten aktiv:   namespaces, id_maps, filesystem, chroot, ...
+Schichten INAKTIV: seccomp
+Interpretation:
+  Moderater Overhead (5-20%) - Für die meisten Aufgaben vernachlässigbar.
+```
+
+Der Benchmark zeigt, wie viel CPU-Zeit die Sandbox-Schichten kosten.
+Über `-p` wählst du die Policy, über `-i` die Wiederholungen.
+Eigener Code mit `-c`. Details in `runs/*/benchmark.json`.
+
+### Schritt 6 — Lasst ihn ausbrechen
 
 ```bash
 python3 agoris.py attacks
@@ -471,7 +511,7 @@ Bericht.
 falsifizierbar sind. Jeder Versuch prüft genau eine Schicht. Wer das Setup
 kennt, kann jeden Versuch wiederholen — und selbst einen fünfzehnten erfinden.
 
-### Schritt 6 — Prüft das Protokoll
+### Schritt 7 — Prüft das Protokoll
 
 ```bash
 python3 agoris.py verify runs/*-minimal
@@ -515,7 +555,7 @@ FEHL runs/…/audit.jsonl: 12 Eintraege gelesen, Kette gebrochen
 Genau dafür ist die Kette da. Und noch etwas: die Prüfung sagt dir nicht nur
 *ob* etwas verändert wurde, sondern auch *welche Zeile* — mit Nummer.
 
-### Schritt 7 — Lasst das Netz zu
+### Schritt 8 — Lasst das Netz zu
 
 ```bash
 python3 agoris.py show research
@@ -526,7 +566,7 @@ python3 agoris.py run "Recherchiere etwas" -p research
 `wikipedia.org`, `arxiv.org`, `example.org`. Alles andere bekommt
 `403 Forbidden` mit Begründung.
 
-### Schritt 8 — Testet alle Agenten auf einen Schlag
+### Schritt 9 — Testet alle Agenten auf einen Schlag
 
 ```bash
 python3 agoris.py test
@@ -929,11 +969,13 @@ runs/20261004-121335-minimal/
 make doctor          # Linux/macOS mit Docker, Windows mit WSL2/Docker
 # oder:
 ./run.sh doctor      # Linux/macOS, erkennt automatisch
-# oder auf Windows:
-.\run.ps1 doctor    # PowerShell, erkennt WSL2/Docker/Codespaces
+# oder auf Windows (PowerShell):
+.\run.ps1 doctor     # erkennt WSL2/Docker/Codespaces
+# oder auf Windows (cmd.exe):
+run.cmd doctor       # erkennt WSL2/Docker/Codespaces
 ```
 
-Beide Skripte prüfen dein Betriebssystem und starten AGORIS auf die
+Alle Skripte prüfen dein Betriebssystem und starten AGORIS auf die
 passende Weise — direkt auf Linux, in WSL2 auf Windows, in Docker auf
 macOS, oder sie zeigen dir, wie du Codespaces nutzt.
 

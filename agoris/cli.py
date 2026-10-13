@@ -26,7 +26,7 @@ from . import attacks as attacks_mod
 from . import report as report_mod
 from . import seccomp as seccomp_mod
 from .audit import AuditLog
-from .launcher import run_agent, run_snippet
+from .launcher import run_agent, run_snippet, run_benchmark
 from .policy import Policy, _deep_merge
 
 RESULTS_DIR = "runs"
@@ -425,6 +425,84 @@ def cmd_verify(args: argparse.Namespace) -> int:
     return 1 if schlechter else 0
 
 
+# ------------------------------------------------------------------- benchmark
+def cmd_benchmark(args: argparse.Namespace) -> int:
+    """Misst den Performance-Overhead der Sandbox.
+
+    Führt den gleichen Code mehrfach nativ (ohne Isolation) und im Sandbox aus
+    und vergleicht die Ausführungszeiten. Zeigt an, wie viel Kapazität die
+    Sandbox-Schichten (Namespaces, chroot, seccomp, Ressourcenlimits) kosten.
+    """
+    policy = Policy.load(args.policy)
+    run_dir = _new_run_dir(f"benchmark-{policy.name}")
+
+    print(BANNER)
+    print(f"Sandbox-Benchmark (Policy '{policy.name}')")
+    print(f"Wiederholungen: {args.iterations}  |  Warmup: {args.warmup}")
+    print(f"Ordner: {run_dir}")
+    print("-" * 64)
+
+    # Benchmark-Code: CPU-lastig, misst reinen Overhead
+    benchmark_code = args.code or (
+        "import time, math\n"
+        "start = time.time()\n"
+        "x = 0.0\n"
+        "for i in range(500000):\n"
+        "    x += math.sin(i) * math.cos(i)\n"
+        "print(f'Loops: 500000, Result: {x:.6f}, Time: {time.time()-start:.3f}s')"
+    )
+
+    if args.verbose:
+        print("Benchmark-Code:")
+        print(benchmark_code)
+        print("-" * 64)
+
+    result = run_benchmark(
+        benchmark_code,
+        policy,
+        run_dir,
+        iterations=args.iterations,
+        warmup=args.warmup,
+    )
+
+    print(f"Nativ (keine Sandbox):     {result.native_time:.3f}s  "
+          f"(min: {result.details['native_min']:.3f}s, max: {result.details['native_max']:.3f}s)")
+    print(f"Im Sandbox:                {result.sandbox_time:.3f}s  "
+          f"(min: {result.details['sandbox_min']:.3f}s, max: {result.details['sandbox_max']:.3f}s)")
+    print(f"Overhead:                  {result.overhead_percent:.1f}%")
+    print("-" * 64)
+
+    if result.details.get("active_layers"):
+        print(f"Aktive Schichten:   {', '.join(result.details['active_layers'])}")
+    if result.details.get("inactive_layers"):
+        print(f"Inaktive Schichten: {', '.join(result.details['inactive_layers'])}")
+
+    print("-" * 64)
+    print("Interpretation:")
+    if result.overhead_percent < 5:
+        print("  Geringer Overhead (< 5%) - Sandbox kostet kaum Leistung.")
+    elif result.overhead_percent < 20:
+        print("  Moderater Overhead (5-20%) - Für die meisten Aufgaben vernachlässigbar.")
+    elif result.overhead_percent < 50:
+        print("  Deutlicher Overhead (20-50%) - Bei CPU-lastigen Aufgaben spürbar.")
+    else:
+        print("  Hoher Overhead (> 50%) - Prüfe, ob alle Schichten nötig sind.")
+        print("  Tipp: 'seccomp: false' in Policy reduziert Overhead stark.")
+
+    print()
+    print("Hinweis: Der Overhead besteht aus:")
+    print("  - Namespace-Aufbau (unshare, ID-Mapping)")
+    print("  - Dateisystem-Aufbau (tmpfs, Mounts, chroot)")
+    print("  - Rechte-Entzug (Capabilities, no_new_privs)")
+    print("  - Ressourcen-Limits (setrlimit)")
+    print("  - seccomp-Filter (BPF-Programm, falls aktiv)")
+    print("  - Proxy-Start (falls Netz-Policy aktiv)")
+    print()
+    print(f"Details in: {run_dir}")
+
+    return 0
+
+
 # ----------------------------------------------------------------------- main
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agoris", description=BANNER)
@@ -468,6 +546,15 @@ def build_parser() -> argparse.ArgumentParser:
     pruef = sub.add_parser("verify", help="Audit-Hashkette pruefen (mehrere Pfade moeglich)")
     pruef.add_argument("run_dir", nargs="+", help="Laufordner oder audit.jsonl")
     pruef.set_defaults(func=cmd_verify)
+
+    bench = sub.add_parser("benchmark", help="Sandbox-Performance messen (Overhead nativ vs. Sandbox)")
+    bench.add_argument("-p", "--policy", default="minimal", help="Policy für den Sandbox-Lauf")
+    bench.add_argument("-i", "--iterations", type=int, default=5, help="Messwiederholungen pro Modus (Standard: 5)")
+    bench.add_argument("-w", "--warmup", type=int, default=1, help="Warmup-Läufe (Standard: 1)")
+    bench.add_argument("-c", "--code", help="Eigener Benchmark-Code als String")
+    bench.add_argument("-v", "--verbose", action="store_true", help="Benchmark-Code anzeigen")
+    bench.set_defaults(func=cmd_benchmark)
+
     return parser
 
 
