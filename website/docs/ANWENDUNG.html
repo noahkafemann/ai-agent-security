@@ -20,9 +20,10 @@ python3 agoris.py doctor</code></pre>
 <table><thead><tr><th>Plattform</th><th>Einfachste Lösung</th><th>Alternative</th></tr></thead><tbody><tr><td><strong>Windows</strong></td><td>WSL2: <code>wsl --install</code> in PowerShell</td><td>Docker Desktop, GitHub Codespaces</td></tr><tr><td><strong>macOS</strong></td><td>GitHub Codespaces (Browser)</td><td>Docker Desktop, Linux-VM</td></tr><tr><td><strong>Linux</strong></td><td>direkt — nichts weiter nötig</td><td>—</td></tr></tbody></table>
 <p>Eine schrittweise Anleitung für alle Plattformen ist in <a href="INSTALLATION.html"><code>INSTALLATION.md</code></a>. Das Repository enthält auch ein <code>Dockerfile</code> und ein <code>.devcontainer/devcontainer.json</code> für Codespaces.</p>
 <h2>Erste Schritte</h2>
-<pre><code class="language-bash">python3 agoris.py run &quot;Lies &#x27;aufgabe.md&#x27; und fasse zusammen.&quot;   # Demo
+<pre><code class="language-bash">python3 agoris.py run "Lies 'aufgabe.md' und fasse zusammen."   # Demo
 python3 agoris.py show research                                  # Policy ansehen
 python3 agoris.py attacks                                        # 14 Versuche
+python3 agoris.py benchmark                                      # Performance messen
 python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen</code></pre>
 <p>Ein Lauf landet in <code>runs/&lt;zeitstempel&gt;-&lt;policy&gt;/</code>:</p>
 <table><thead><tr><th>Datei</th><th>Inhalt</th></tr></thead><tbody><tr><td><code>audit.jsonl</code></td><td>jedes Ereignis mit Hashkette</td></tr><tr><td><code>bericht.md</code></td><td>lesbarer Bericht</td></tr><tr><td><code>bericht.json</code></td><td>dasselbe für Skripte</td></tr><tr><td><code>jail/</code></td><td>das aufgebaute Gefängnis-Dateisystem</td></tr><tr><td><code>payload/agoris/</code></td><td>Kopie der Runtime (read-only eingebunden)</td></tr></tbody></table>
@@ -115,6 +116,32 @@ zusammen = collections.Counter(
 for schluessel, anzahl in sorted(zusammen.items()):
     print(schluessel, anzahl)</code></pre>
 <p>Die Audit-Log-Dateien lassen sich mit <code>agoris.verify</code> oder direkt zeilenweise auswerten — jede Zeile enthält <code>seq</code>, <code>event</code>, <code>actor</code>, <code>ts</code> und <code>hash</code>.</p>
+<h2>Sandbox-Performance messen (Benchmark)</h2>
+<p>Der Befehl <code>benchmark</code> misst, wie viel CPU-Zeit die Sandbox-Schichten
+(Namespaces, chroot, seccomp, Ressourcenlimits, Proxy) kosten:</p>
+<pre><code class="language-bash"># Standard-Benchmark (Policy minimal, 5 Iterationen, 1 Warmup)
+python3 agoris.py benchmark
+
+# Mit eigener Policy
+python3 agoris.py benchmark -p research
+
+# Mehr Wiederholungen für genauere Werte
+python3 agoris.py benchmark -i 10 -w 2
+
+# Eigener Benchmark-Code
+python3 agoris.py benchmark -c "import math; sum(math.sin(i) for i in range(1000000))"</code></pre>
+<p>Ausgabe:</p>
+<pre><code>Nativ (keine Sandbox):     0.234s
+Im Sandbox:                0.258s
+Overhead:                  10.3%
+Aktive Schichten:          namespaces, id_maps, filesystem, chroot, ...
+Inaktive Schichten:        seccomp
+Interpretation:
+  Moderater Overhead (5-20%) - Für die meisten Aufgaben vernachlässigbar.</code></pre>
+<p>Der Benchmark schreibt Details nach <code>runs/*/benchmark.json</code> (maschinenlesbar)
+und <code>runs/*/benchmark.md</code> (lesbar). Damit lässt sich der Performance-Preis
+der Isolation in Berichten dokumentieren.</p>
+<p>Details: <a href="BENCHMARK.html"><code>BENCHMARK.md</code></a>.</p>
 <h2>Für die Schule</h2>
 <p>Die Anlage ist als Versuch aufgebaut, nicht als fertiges Produkt. Ein sinnvoller Ablauf:</p>
 <ol><li><code>doctor</code> — was kann dieser Rechner?</li><li><code>attacks</code> — halten die Schichten?</li><li>Eine Policy verschärfen (<code>cpu_seconds: 5</code>) und den Lauf wiederholen.</li><li>Eine Policy lockern (Netz ohne Positivliste) und den Lauf wiederholen.</li><li>Den Bericht vergleichen: Was hat sich geändert, welche Schicht war wirksam?</li></ol>

@@ -21,6 +21,7 @@
        <li><a href="#start">Start</a></li>
        <li><a href="#plattformen">Plattformen</a></li>
        <li><a href="#blick">Innenansicht</a></li>
+       <li><a href="#benchmark">Benchmark</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
       <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
     </ul>
@@ -357,6 +358,38 @@ ALLE 10 TESTS BESTANDEN</pre>
     </p>
   </section>
 
+  <section id="benchmark" class="benchmark">
+    <p class="eyebrow">Performance messen</p>
+    <h2>Wie viel kostet die Sandbox?</h2>
+    <p class="sub">
+      Jede Sicherheitsschicht braucht Zeit. Der eingebaute Benchmark misst den
+      CPU-Overhead: gleicher Code, einmal nativ, einmal im vollen Sandbox.
+    </p>
+    <pre><span class="c-p">$</span> python3 agoris.py benchmark
+Nativ (keine Sandbox):     0.234s
+Im Sandbox:                0.258s
+Overhead:                  10.3%</pre>
+    <p class="sub">
+      Über <code>-p</code> wählst du die Policy, über <code>-i</code> die
+      Wiederholungen. Eigener Code mit <code>-c</code>.
+      <a href="docs/BENCHMARK.html">Details →</a>
+    </p>
+    <div class="agent-grid">
+      <article class="agent-card">
+        <h3>< 5%</h3>
+        <p>Geringer Overhead. Sandbox kostet kaum Leistung.</p>
+      </article>
+      <article class="agent-card">
+        <h3>5–20%</h3>
+        <p>Moderat. Für die meisten Aufgaben vernachlässigbar.</p>
+      </article>
+      <article class="agent-card">
+        <h3>> 50%</h3>
+        <p>Hoch. <code>seccomp: false</code> in Policy spart 5–15%.</p>
+      </article>
+    </div>
+  </section>
+
   <section id="grenzen" class="limits">
     <p class="eyebrow">Ehrliche Grenzen</p>
     <h2>Was das nicht ist</h2>
@@ -401,6 +434,7 @@ ALLE 10 TESTS BESTANDEN</pre>
         <li><a href="docs/VERSUCHSPROTOKOLL.html">Versuchsprotokoll</a></li>
         <li><a href="docs/ANWENDUNG.html">Anwendung</a></li>
         <li><a href="docs/INSTALLATION.html">Installation (alle Plattformen)</a></li>
+        <li><a href="docs/BENCHMARK.html">Sandbox-Performance (Benchmark)</a></li>
       </ul>
     </div>
     <div>

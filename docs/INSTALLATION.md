@@ -48,6 +48,24 @@ python --version   # manche Systeme nennen es 'python' statt 'python3'
 
 **Empfehlung: WSL2** (Windows-Subsystem für Linux, Version 2)
 
+Der einfachste Weg: Nutze die mitgelieferten Startskripte — sie erkennen
+automatisch WSL2, Docker oder Codespaces:
+
+```cmd
+REM In cmd.exe (Eingabeaufforderung):
+run.cmd doctor
+
+REM In PowerShell:
+.\run.ps1 doctor
+```
+
+Diese Skripte prüfen:
+1. Ist WSL2 installiert? → Führen AGORIS in WSL2 aus
+2. Läuft Docker Desktop? → Starten Container mit `--privileged`
+3. Keins von beidem? → Zeigen klare Installationsanleitung
+
+**Falls du WSL2 manuell installieren willst:**
+
 In PowerShell **als Administrator**:
 
 ```powershell

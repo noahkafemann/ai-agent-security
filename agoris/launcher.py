@@ -561,3 +561,153 @@ def _read_capped(fd: int, limit: int, deadline: float) -> Tuple[str, bool]:
     except OSError:
         pass
     return b"".join(chunks).decode("utf-8", "replace"), truncated
+
+
+# ---------------------------------------------------------------------- Benchmark
+class BenchmarkResult:
+    """Ergebnis eines Sandbox-Performance-Benchmarks."""
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.sandbox_time: float = 0.0
+        self.native_time: float = 0.0
+        self.overhead_percent: float = 0.0
+        self.sandbox_result: Optional[SnippetResult] = None
+        self.native_result: Optional[SnippetResult] = None
+        self.details: Dict[str, Any] = {}
+
+
+def run_benchmark(
+    code: str,
+    policy: Policy,
+    run_dir: str,
+    iterations: int = 5,
+    warmup: int = 1,
+) -> BenchmarkResult:
+    """Misst den Overhead der Sandbox durch Vergleich: gleicher Code im und ohne Sandbox.
+
+    Args:
+        code: Python-Code der im Sandbox und nativ ausgeführt wird
+        policy: Policy für den Sandbox-Lauf
+        run_dir: Verzeichnis für temporäre Dateien
+        iterations: Anzahl Messwiederholungen pro Modus
+        warmup: Anzahl Warmup-Läufe (werden nicht gewertet)
+
+    Returns:
+        BenchmarkResult mit Zeiten, Overhead-Prozent und Details
+    """
+    result = BenchmarkResult("sandbox_overhead")
+    result.details["iterations"] = iterations
+    result.details["warmup"] = warmup
+
+    # Warmup (nicht gewertet)
+    for _ in range(warmup):
+        _run_native_snippet(code, run_dir)
+        run_snippet(code, policy, os.path.join(run_dir, f"warmup-{os.urandom(4).hex()}"))
+
+    # Nativ (ohne Sandbox) - mehrfach messen
+    native_times: List[float] = []
+    for i in range(iterations):
+        r = _run_native_snippet(code, os.path.join(run_dir, f"native-{i}"))
+        native_times.append(r.seconds)
+    result.native_time = round(sum(native_times) / len(native_times), 3)
+    result.details["native_times"] = [round(t, 3) for t in native_times]
+    result.details["native_min"] = round(min(native_times), 3)
+    result.details["native_max"] = round(max(native_times), 3)
+
+    # Im Sandbox - mehrfach messen
+    sandbox_times: List[float] = []
+    last_sandbox_result = None
+    for i in range(iterations):
+        sandbox_dir = os.path.join(run_dir, f"sandbox-{i}")
+        r = run_snippet(code, policy, sandbox_dir)
+        sandbox_times.append(r.seconds)
+        last_sandbox_result = r
+    result.sandbox_time = round(sum(sandbox_times) / len(sandbox_times), 3)
+    result.details["sandbox_times"] = [round(t, 3) for t in sandbox_times]
+    result.details["sandbox_min"] = round(min(sandbox_times), 3)
+    result.details["sandbox_max"] = round(max(sandbox_times), 3)
+    result.sandbox_result = last_sandbox_result
+
+    # Overhead berechnen
+    if result.native_time > 0:
+        result.overhead_percent = round(
+            ((result.sandbox_time - result.native_time) / result.native_time) * 100, 1
+        )
+
+    # Schichten-Info aus dem letzten Sandbox-Lauf
+    if last_sandbox_result:
+        result.details["active_layers"] = last_sandbox_result.jail_report.get("active_layers", [])
+        result.details["inactive_layers"] = last_sandbox_result.jail_report.get("inactive_layers", [])
+
+    return result
+
+
+def _run_native_snippet(code: str, run_dir: str) -> SnippetResult:
+    """Führt Code nativ aus (ohne Sandbox, fork aber ohne Namespaces/chroot)."""
+    result = SnippetResult()
+    os.makedirs(run_dir, exist_ok=True)
+
+    out_r, out_w = os.pipe()
+    err_r, err_w = os.pipe()
+
+    started = time.time()
+    pid = os.fork()
+    if pid == 0:
+        os.close(out_r)
+        os.close(err_r)
+        os.dup2(out_w, 1)
+        os.dup2(err_w, 2)
+        os.close(out_w)
+        os.close(err_w)
+        try:
+            # Minimale Umgebung wie im Sandbox
+            os.environ.clear()
+            os.environ.update({
+                "PATH": "/usr/bin:/bin",
+                "HOME": "/tmp",
+                "TMPDIR": "/tmp",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTHONNOUSERSITE": "1",
+                "AGORIS_SANDBOX": "0",
+                "LANG": "C.UTF-8",
+            })
+            os.chdir("/tmp")
+            os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "-c", code])
+        except OSError as exc:
+            os.write(2, f"Start fehlgeschlagen: {exc}\n".encode())
+            os._exit(71)
+
+    os.close(out_w)
+    os.close(err_w)
+
+    # Pipes lesen
+    out_data = b""
+    err_data = b""
+    try:
+        while True:
+            chunk = os.read(out_r, 65536)
+            if not chunk:
+                break
+            out_data += chunk
+    except OSError:
+        pass
+    try:
+        while True:
+            chunk = os.read(err_r, 65536)
+            if not chunk:
+                break
+            err_data += chunk
+    except OSError:
+        pass
+    os.close(out_r)
+    os.close(err_r)
+
+    _, status = os.waitpid(pid, 0)
+    result.exit_code = os.WEXITSTATUS(status) if os.WIFEXITED(status) else None
+    result.signal = os.WTERMSIG(status) if os.WIFSIGNALED(status) else None
+    result.stdout = out_data.decode("utf-8", "replace")
+    result.stderr = err_data.decode("utf-8", "replace")
+    result.seconds = round(time.time() - started, 3)
+
+    return result

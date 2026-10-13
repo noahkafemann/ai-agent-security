@@ -236,6 +236,43 @@ for schluessel, anzahl in sorted(zusammen.items()):
 Die Audit-Log-Dateien lassen sich mit `agoris.verify` oder direkt zeilenweise
 auswerten — jede Zeile enthält `seq`, `event`, `actor`, `ts` und `hash`.
 
+## Sandbox-Performance messen (Benchmark)
+
+Der Befehl `benchmark` misst, wie viel CPU-Zeit die Sandbox-Schichten
+(Namespaces, chroot, seccomp, Ressourcenlimits, Proxy) kosten:
+
+```bash
+# Standard-Benchmark (Policy minimal, 5 Iterationen, 1 Warmup)
+python3 agoris.py benchmark
+
+# Mit eigener Policy
+python3 agoris.py benchmark -p research
+
+# Mehr Wiederholungen für genauere Werte
+python3 agoris.py benchmark -i 10 -w 2
+
+# Eigener Benchmark-Code
+python3 agoris.py benchmark -c "import math; sum(math.sin(i) for i in range(1000000))"
+```
+
+Ausgabe:
+
+```
+Nativ (keine Sandbox):     0.234s
+Im Sandbox:                0.258s
+Overhead:                  10.3%
+Aktive Schichten:          namespaces, id_maps, filesystem, chroot, ...
+Inaktive Schichten:        seccomp
+Interpretation:
+  Moderater Overhead (5-20%) - Für die meisten Aufgaben vernachlässigbar.
+```
+
+Der Benchmark schreibt Details nach `runs/*/benchmark.json` (maschinenlesbar)
+und `runs/*/benchmark.md` (lesbar). Damit lässt sich der Performance-Preis
+der Isolation in Berichten dokumentieren.
+
+Details: [`BENCHMARK.md`](BENCHMARK.md).
+
 ## Für die Schule
 
 Die Anlage ist als Versuch aufgebaut, nicht als fertiges Produkt. Ein sinnvoller
