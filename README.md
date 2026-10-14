@@ -940,7 +940,7 @@ gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 | Befehl | Wozu |
 |---|---|
 | `python3 agoris.py` | Demo-Lauf mit Policy `minimal` |
-| `python3 agoris.py doctor` | Fähigkeiten des Rechners prüfen |
+| `python3 agoris.py doctor` | Umgebung und Faehigkeiten pruefen |
 | `python3 agoris.py` | unter Windows: klare Meldung statt Absturz (Exit-Code 3) |
 | `python3 agoris.py inspect` | Innenansicht des Käfigs |
 | `python3 agoris.py policies` | verfügbare Policies |
@@ -949,6 +949,41 @@ gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 | `python3 agoris.py test` | Sandbox gegen verschiedene Agenten testen |
 | `python3 agoris.py attacks` | Ausbruchversuche |
 | `python3 agoris.py verify <lauf…>` | Audit-Hashkette prüfen, mehrere Pfade möglich |
+
+## Schnellstart mit Menü
+
+Für eine interaktive Erfahrung kannst du das Menü-Skript verwenden:
+
+```bash
+python3 menu.py
+```
+
+Das Menü führt dich durch die verfügbaren Optionen und ermöglicht es dir, beispielsweise einen eigenen KI-Agenten aus einer Python-Datei auszuführen.
+
+### Eigenen KI-Agenten ausführen
+
+Um einen eigenen KI-Agenten aus einer Python-Datei auszuführen, wähle im Menü die Option „Benutzerdefinierten Agenten ausführen“ und gib den Pfad zur Python-Datei an. Die Datei wird in der sicheren Sandbox-Umgebung ausgeführt und kann nur die erlaubten Werkzeuge nutzen (wie Dateioperationen in `/work`, begrenzte Rechenzeit und Speicher, kein direkter Netzwerkzugriff usw.).
+
+Beispielstruktur einer Agenten-Datei (`mein_agent.py`):
+```python
+# Dies ist ein einfacher Beispiel-Agent, der die erlaubten Werkzeuge nutzt.
+# In einer echten Implementierung würdest du die AGORIS-Werkzeuge über die
+# bereitgestellten Schnittstellen verwenden (siehe agoris/runtime/tools.py).
+# Für das Menü-Skript wird die Datei direkt als Agenten-Hauptschleife behandelt.
+
+def main():
+    # Deine Agenten-Logik hier
+    print("Agent gestartet")
+    # Beispiel: Eine Datei schreiben
+    with open("/work/output.txt", "w") as f:
+        f.write("Hello from agent!")
+    print("Agent beendet")
+
+if __name__ == "__main__":
+    main()
+```
+
+Hinweis: Das Menü-Skript führt die Datei im Kontext des AGORIS-Agenten aus, sodass du Zugang zu den erlaubten Werkzeugen hast. Weitere Details zu den Werkzeugen findest du in der Dokumentation unter `agoris/runtime/tools.py`.
 
 ### Was ein Lauf hinterlässt
 
