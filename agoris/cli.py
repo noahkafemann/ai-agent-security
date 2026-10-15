@@ -256,7 +256,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     answer_preview = result.answer[:300] or '(leer)'
     print(f"Antwort: {style.info(answer_preview)}")
     if result.files:
-        print(style.info(f'Dateien des Agenten ({len(result.files)}) in {os.path.join(run_dir, \'ausgabe\'):}))
+        print(style.info(f"Dateien des Agenten ({len(result.files)}) in {os.path.join(run_dir, 'ausgabe')}"))
         for datei in result.files:
             rel = os.path.relpath(datei, run_dir)
             size = os.path.getsize(datei)
