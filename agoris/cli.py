@@ -8,8 +8,8 @@
     python3 agoris.py test                Sandbox gegen verschiedene Agenten testen
     python3 agoris.py verify runs/<name>  Audit-Hashkette pruefen
 
-Ohne Argumente startet ein kleiner Demo-Lauf mit der Policy ``minimal`` - so
-sieht man die Anlage funktionieren, ohne sie einrichten zu muessen.
+    Ohne Argumente startet das interaktive Menü - so
+    kann man AGORIS einfach und benutzerfreundlich verwenden.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import os
 import platform
 import sys
 import time
+import subprocess
 from typing import Any, Dict, List, Optional
 
 from . import attacks as attacks_mod
@@ -29,6 +30,7 @@ from . import style
 from .audit import AuditLog
 from .launcher import run_agent, run_snippet, run_benchmark
 from .policy import Policy, _deep_merge
+
 
 RESULTS_DIR = "runs"
 BANNER = "AGORIS - sichere Umgebung fuer unzuverlaessige KI-Agenten"
@@ -565,10 +567,15 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
 # ----------------------------------------------------------------------- main
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="agoris", description=BANNER)
+    parser.set_defaults(func=start_cmd)
     sub = parser.add_subparsers(dest="command")
+    start_parser = sub.add_parser("start", help="Start interactive menu")
+    start_parser.set_defaults(func=start_cmd)
 
     sub.add_parser("doctor", help="Umgebung und Faehigkeiten pruefen").set_defaults(func=doctor)
     sub.add_parser("policies", help="verfuegbare Policies listen").set_defaults(func=cmd_policies)
+
+
 
     show = sub.add_parser("show", help="Policy im Detail zeigen")
     show.add_argument("policy", nargs="?", default="minimal")
@@ -615,6 +622,12 @@ def build_parser() -> argparse.ArgumentParser:
     bench.set_defaults(func=cmd_benchmark)
 
     return parser
+
+def start_cmd(args: argparse.Namespace = None) -> int:
+    print(style.header("Starting AGORIS interactive menu..."))
+    # Launch menu.py as a subprocess to avoid circular imports
+    menu_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "menu.py")
+    return subprocess.run([sys.executable, menu_path]).returncode
 
 
 def main(argv: Optional[List[str]] = None) -> int:
