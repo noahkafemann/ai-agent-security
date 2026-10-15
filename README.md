@@ -939,26 +939,30 @@ gegen `docs/*.md` und schlägt fehl — mit dem Text, der weiterhilft.
 
 | Befehl | Wozu |
 |---|---|
-| `python3 agoris.py` | Demo-Lauf mit Policy `minimal` |
-| `python3 agoris.py doctor` | Umgebung und Faehigkeiten pruefen |
-| `python3 agoris.py` | unter Windows: klare Meldung statt Absturz (Exit-Code 3) |
-| `python3 agoris.py inspect` | Innenansicht des Käfigs |
-| `python3 agoris.py policies` | verfügbare Policies |
-| `python3 agoris.py show <name>` | Policy im Detail |
-| `python3 agoris.py run "…" -p <policy>` | Agentenlauf |
+| `python3 agoris.py` | Startet das interaktive Menü (Standardverhalten) |
+| `python3 agoris.py start` | Öffnet das interaktive Menü explizit |
+| `python3 agoris.py doctor` | Umgebung und Fähigkeiten prüfen |
+| `python3 agoris.py policies` | verfügbare Policies zeigen |
+| `python3 agoris.py show <name>` | Policy im Detail zeigen |
+| `python3 agoris.py run "…" -p <policy>` | Agentenlauf starten |
 | `python3 agoris.py test` | Sandbox gegen verschiedene Agenten testen |
-| `python3 agoris.py attacks` | Ausbruchversuche |
+| `python3 agoris.py attacks` | Ausbruchversuche ausführen |
 | `python3 agoris.py verify <lauf…>` | Audit-Hashkette prüfen, mehrere Pfade möglich |
+| `python3 agoris.py benchmark` | Sandbox-Performance messen (Overhead nativ vs. Sandbox) |
 
-## Schnellstart mit Menü
+## Schnellstart
 
-Für eine interaktive Erfahrung kannst du das Menü-Skript verwenden:
+AGORIS bietet zwei einfache Wege zur Verwendung:
 
-```bash
-python3 menu.py
-```
+1. **Direkt über den Hauptbefehl**  
+   `python3 agoris.py`  
+   Ohne Argumente startet automatisch das interaktive Menü – so kannst du AGORIS sofort und benutzerfreundlich verwenden.
 
-Das Menü führt dich durch die verfügbaren Optionen und ermöglicht es dir, beispielsweise einen eigenen KI-Agenten aus einer Python-Datei auszuführen.
+2. **Über das eigenständige Menü-Skript**  
+   `python3 menu.py`  
+   Das gleiche Menü wie oben, verfügbar als separates Skript.
+
+Beide Wege führen dich durch die verfügbaren Optionen (Umgebung prüfen, Innenansicht, Agentenlauf starten, Tests ausführen, Angriffe simulieren usw.) und ermöglichen es dir, beispielsweise einen eigenen KI-Agenten aus einer Python-Datei auszuführen.
 
 ### Eigenen KI-Agenten ausführen
 
