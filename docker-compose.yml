@@ -1,0 +1,29 @@
+# docker-compose.yml — AGORIS einfach unter Windows/macOS/Linux mit Docker Desktop
+#
+# Voraussetzung: Docker Desktop installiert und läuft, WSL2-Backend aktiv (Windows)
+#
+# Verwendung:
+#   docker-compose up            # interaktives Menü
+#   docker-compose run --rm agoris doctor   # Umgebung prüfen
+#   docker-compose run --rm agoris test     # vollständiger Test
+#   docker-compose run --rm agoris attacks  # 14 Ausbruchversuche
+#   docker-compose run --rm agoris run "Aufgabe" -p minimal
+#
+# Hinweis: Der Container braucht --privileged, damit unshare() und
+#          Namespaces im Docker-Desktop-VM funktionieren.
+
+services:
+  agoris:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agoris:latest
+    container_name: agoris
+    privileged: true
+    tty: true
+    stdin_open: true
+    working_dir: /agoris
+    volumes:
+      - .:/agoris
+      - ./runs:/agoris/runs
+    command: ["python3", "agoris.py", "start"]
