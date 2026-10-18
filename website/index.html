@@ -4,11 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AGORIS — sichere Umgebung für unzuverlässige KI-Agenten</title>
-<meta name="description" content="AGORIS ist eine Sandbox für KI-Agenten: Namespaces, chroot, Ressourcengrenzen, seccomp und Richtlinien-Proxy. Nur Standardbibliothek.">
+<meta name="description" content="AGORIS ist eine Sandbox für KI-Agenten: Namespaces, chroot, Ressourcengrenzen, seccomp und Richtlinien-Proxy. Nur Standardbibliothek. Einfache Installation unter Windows über Docker Desktop.">
 <link rel="stylesheet" href="style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 </head>
 <body>
 <div class="scan" aria-hidden="true"></div>
+<div class="toast" id="toast" aria-live="polite"></div>
 
 <header>
   <nav>
@@ -18,12 +21,15 @@
       <li><a href="#schichten">Schichten</a></li>
       <li><a href="#nachweis">Nachweis</a></li>
       <li><a href="#agenten">Agenten</a></li>
-       <li><a href="#start">Start</a></li>
-       <li><a href="#plattformen">Plattformen</a></li>
-       <li><a href="#blick">Innenansicht</a></li>
-       <li><a href="#benchmark">Benchmark</a></li>
+      <li><a href="#start">Start</a></li>
+      <li><a href="#plattformen">Plattformen</a></li>
+      <li><a href="#install">Windows Install</a></li>
+      <li><a href="#blick">Innenansicht</a></li>
+      <li><a href="#benchmark">Benchmark</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
+      <li><a href="#interaktiv">Live Demo</a></li>
       <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
+      <li><button id="theme-toggle" class="theme-toggle" aria-label="Design umschalten">🌓</button></li>
     </ul>
   </nav>
 </header>
@@ -31,7 +37,7 @@
 <main id="top">
 
   <section class="hero">
-    <p class="eyebrow">KI-Sicherheit · Versuchsaufbau</p>
+    <p class="eyebrow">KI-Sicherheit · Versuchsaufbau · Docker-ready</p>
     <h1>Was ein Agent darf,<br><em>entscheidet der Wirt.</em></h1>
     <p class="lede">
       Ein Sprachmodell kann Anweisungen befolgen, die jemand anderes ihm gibt.
@@ -47,9 +53,10 @@
       Isolation bei <i>jedem</i> Agenten hält — nicht nur bei einem.
     </p>
     <div class="cta-row">
-      <a class="btn primary" href="#start">Anleitung</a>
+      <a class="btn primary" href="#install">Unter Windows installieren</a>
       <a class="btn" href="#nachweis">14 Ausbruchversuche</a>
       <a class="btn" href="#agenten">Agenten testen</a>
+      <a class="btn" href="#interaktiv">Live-Demo</a>
     </div>
     <details class="peek" open>
       <summary>So sieht es auf einem echten Rechner aus</summary>
@@ -328,6 +335,61 @@ ALLE 10 TESTS BESTANDEN</pre>
     <p class="note">Installation: <code>git clone https://github.com/noahkafemann/ai-agent-security.git</code> — mehr braucht nichts.</p>
   </section>
 
+  <section id="install" class="platform install">
+    <p class="eyebrow">Windows — einfache Installation</p>
+    <h2>AGORIS unter Windows mit Docker Desktop</h2>
+    <p class="sub">
+      AGORIS nutzt Linux-Kernel-Funktionen. Unter Windows läuft es deshalb
+      am besten in Docker Desktop. Die Skripte unten behandeln auch die
+      Windows-Meldung, dass der Herausgeber von Befehlsskripten nicht
+      verifiziert werden kann.
+    </p>
+
+    <div class="install-grid">
+      <article class="install-card">
+        <h3>1. Docker Desktop installieren</h3>
+        <ol>
+          <li>Lade Docker Desktop für Windows herunter:
+            <a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener">docker.com/products/docker-desktop</a>
+          </li>
+          <li>Installiere und starte den Rechner neu (falls gefragt).</li>
+          <li>Aktiviere WSL2 als Backend: Docker Desktop → Settings → Resources → WSL Integration.</li>
+          <li>Warte, bis das Wal-Symbol grün leuchtet.</li>
+        </ol>
+      </article>
+
+      <article class="install-card">
+        <h3>2. Skript entsperren (wenn Windows blockiert)</h3>
+        <p>Wenn Windows meldet: „Der Herausgeber kann nicht verifiziert werden“:</p>
+        <pre><span class="c-p">$</span> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</pre>
+        <p>Oder starte mit Umgehung:</p>
+        <pre><span class="c-p">$</span> powershell -ExecutionPolicy Bypass -File install.ps1</pre>
+      </article>
+
+      <article class="install-card">
+        <h3>3. AGORIS starten</h3>
+        <pre><span class="c-p">PS&gt;</span> .\install.ps1 doctor</pre>
+        <pre><span class="c-p">PS&gt;</span> .\install.ps1 test</pre>
+        <pre><span class="c-p">PS&gt;</span> .\install.ps1 run "Hallo Welt" -p minimal</pre>
+        <p class="note">Oder in cmd.exe: <code>install.bat doctor</code></p>
+      </article>
+
+      <article class="install-card">
+        <h3>4. Oder mit Docker Compose</h3>
+        <pre><span class="c-p">$</span> docker-compose up</pre>
+        <pre><span class="c-p">$</span> docker-compose run --rm agoris doctor</pre>
+        <p class="note">docker-compose.yml ist bereits im Repository enthalten.</p>
+      </article>
+
+      <article class="install-card">
+        <h3>5. Ohne Installation (Browser)</h3>
+        <p>GitHub Codespaces — keine lokale Installation nötig:</p>
+        <pre><span class="c-p">$</span> Öffne das Repository in github.dev</pre>
+        <pre><span class="c-p">$</span> Code → Open with Codespaces</pre>
+      </article>
+    </div>
+  </section>
+
   <section id="plattformen" class="platform">
     <p class="eyebrow">Plattformen</p>
     <h2>Windows? macOS? — AGORIS läuft trotzdem.</h2>
@@ -356,6 +418,38 @@ ALLE 10 TESTS BESTANDEN</pre>
       Eine Schritt-für-Schritt-Anleitung für alle Plattformen findest du in
       <a href="docs/INSTALLATION.html">docs/INSTALLATION</a>.
     </p>
+  </section>
+
+  <section id="interaktiv" class="live-demo">
+    <p class="eyebrow">Live-Demo</p>
+    <h2>AGORIS im Browser ausprobieren</h2>
+    <p class="sub">
+      Klicke auf einen Befehl, um ihn im simulierten Terminal auszuführen.
+      Die Ausgabe stammt aus einer echten Messung.
+    </p>
+    <div class="demo-grid">
+      <div class="demo-terminal">
+        <div class="terminal-header">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <span class="title">agoris@localhost:~$</span>
+        </div>
+        <pre class="terminal-output" id="demo-output"></pre>
+        <div class="terminal-input">
+          <span class="prompt">$</span>
+          <input type="text" id="demo-input" autocomplete="off" placeholder="Befehl eingeben...">
+        </div>
+      </div>
+      <div class="demo-commands">
+        <h4>Befehle</h4>
+        <button class="demo-btn" data-cmd="doctor">python3 agoris.py doctor</button>
+        <button class="demo-btn" data-cmd="attacks">python3 agoris.py attacks</button>
+        <button class="demo-btn" data-cmd="test">python3 agoris.py test</button>
+        <button class="demo-btn" data-cmd="help">agoris --help</button>
+        <button class="demo-btn" data-cmd="clear">clear</button>
+      </div>
+    </div>
   </section>
 
   <section id="benchmark" class="benchmark">
