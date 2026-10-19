@@ -127,3 +127,4 @@
     });
   }
 })();
+// Updated for interactive OS detection
