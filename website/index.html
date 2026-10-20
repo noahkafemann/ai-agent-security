@@ -27,8 +27,9 @@
       <li><a href="#blick">Innenansicht</a></li>
       <li><a href="#benchmark">Benchmark</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
-      <li><a href="#interaktiv">Live Demo</a></li>
-      <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
+    <li><a href="#sandbox-vis">Sandbox-Visualisierung</a></li>
+    <li><a href="#interaktiv">Live Demo</a></li>
+    <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
       <li><button id="theme-toggle" class="theme-toggle" aria-label="Design umschalten">🌓</button></li>
     </ul>
   </nav>
@@ -420,7 +421,105 @@ ALLE 10 TESTS BESTANDEN</pre>
     </p>
   </section>
 
-  <section id="interaktiv" class="live-demo">
+  <section id="sandbox-vis" class="sandbox-visual">
+    <p class="eyebrow">Interaktive Visualisierung</p>
+    <h2>Sandbox in Aktion</h2>
+    <p class="sub">
+      Perspektivische Darstellung der Sicherheitsgrenzen. <span class="badge demo">DEMO-MODUS</span> <span class="badge real" id="sandbox-real-badge" style="display:none">ECHTE EREIGNISSE</span>
+      — Unterscheide zwischen simulierten Demo-Ereignissen und echten Sandbox-Ereignissen.
+    </p>
+    <div class="sandbox-layout">
+      <div class="sandbox-scene">
+        <svg viewBox="0 0 700 500" preserveAspectRatio="xMidYMid meet" aria-label="Sandbox-Visualisierung">
+          <!-- Hintergrundraster -->
+          <defs>
+            <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#3fb950" />
+            </marker>
+            <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#f85149" />
+            </marker>
+            <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#d29922" />
+            </marker>
+          </defs>
+          <!-- Perspektivischer Sandbox-Kasten -->
+          <g class="sandbox-box" id="sandboxBox">
+            <polygon points="150,100 550,100 620,170 80,170" class="sandbox-top" />
+            <polygon points="80,170 620,170 620,380 80,380" class="sandbox-front" />
+            <polygon points="620,170 550,100 550,310 620,380" class="sandbox-side" />
+            <line x1="150" y1="100" x2="150" y2="310" class="sandbox-edge" />
+            <line x1="550" y1="100" x2="550" y2="310" class="sandbox-edge" />
+            <line x1="150" y1="310" x2="550" y2="310" class="sandbox-edge" />
+            <text x="350" y="90" text-anchor="middle" class="sandbox-label">SANDBOX / GEFÄNGNIS</text>
+          </g>
+          <!-- Sicherheitsgrenzen -->
+          <g class="boundaries">
+            <rect x="90" y="180" width="520" height="190" class="boundary-zone" />
+            <text x="350" y="195" text-anchor="middle" class="boundary-label">SICHERHEITSGRENZEN</text>
+          </g>
+          <!-- Komponenten -->
+          <g class="component agent" id="comp-agent" data-resource="agent">
+            <ellipse cx="200" cy="250" rx="45" ry="30" class="comp-shape agent-shape" />
+            <text x="200" y="255" text-anchor="middle" class="comp-text">AGENT</text>
+          </g>
+          <g class="component fs" id="comp-fs" data-resource="filesystem">
+            <rect x="320" y="210" width="80" height="50" rx="5" class="comp-shape fs-shape" />
+            <text x="360" y="240" text-anchor="middle" class="comp-text">DATEISYSTEM</text>
+          </g>
+          <g class="component term" id="comp-term" data-resource="terminal">
+            <rect x="320" y="290" width="80" height="40" rx="3" class="comp-shape term-shape" />
+            <rect x="325" y="295" width="70" height="25" class="term-screen" />
+            <text x="360" y="310" text-anchor="middle" class="comp-text small">TERMINAL</text>
+          </g>
+          <g class="component proc" id="comp-proc" data-resource="processes">
+            <circle cx="460" cy="235" r="28" class="comp-shape proc-shape" />
+            <text x="460" y="240" text-anchor="middle" class="comp-text small">PROZESSE</text>
+          </g>
+          <g class="component net" id="comp-net" data-resource="network">
+            <path d="M 500 290 Q 530 260 500 230" class="comp-shape net-shape" fill="none" stroke-width="12" />
+            <circle cx="500" cy="260" r="6" class="net-dot" />
+            <text x="545" y="265" class="comp-text small">NETZWERK</text>
+          </g>
+          <!-- Berechtigungszonen -->
+          <g class="zones">
+            <ellipse cx="290" cy="345" rx="60" ry="18" class="zone allowed" />
+            <text x="290" y="350" text-anchor="middle" class="zone-text">ERLAUBT</text>
+            <ellipse cx="410" cy="345" rx="60" ry="18" class="zone denied" />
+            <text x="410" y="350" text-anchor="middle" class="zone-text">VERWEIGERT</text>
+          </g>
+          <!-- Animierte Ereignispfade (werden dynamisch hinzugefügt) -->
+          <g id="eventPaths"></g>
+        </svg>
+        <div class="sandbox-controls">
+          <button id="demo-run" class="sandbox-btn primary">Demo-Ereignisse starten</button>
+          <button id="demo-clear" class="sandbox-btn">Zurücksetzen</button>
+          <button id="demo-step" class="sandbox-btn">Nächstes Ereignis</button>
+        </div>
+      </div>
+      <div class="sandbox-sidebar">
+        <div class="sidebar-header">
+          <h3>Ereignisprotokoll</h3>
+          <div class="stats">
+            <span class="stat allowed">Erlaubt: <strong id="stat-allowed">0</strong></span>
+            <span class="stat denied">Verweigert: <strong id="stat-denied">0</strong></span>
+            <span class="stat suspicious">Verdächtig: <strong id="stat-suspicious">0</strong></span>
+          </div>
+        </div>
+        <div class="event-log" id="eventLog">
+          <div class="log-empty">Noch keine Ereignisse. Starte Demo oder warte auf echte Ereignisse.</div>
+        </div>
+        <div class="event-detail" id="eventDetail" style="display:none">
+          <h4>Details</h4>
+          <p id="eventDetailText"></p>
+        </div>
+      </div>
+    </div>
+    <p class="foot">
+      <strong>Hinweis:</strong> Echte Sandbox-Ereignisse stammen aus dem Audit-Log (<code>audit.jsonl</code>) und Angriffsberichten.
+      Demo-Ereignisse sind reproduzierbar und klar als simuliert gekennzeichnet.
+    </p>
+  </section>
     <p class="eyebrow">Live-Demo</p>
     <h2>AGORIS im Browser ausprobieren</h2>
     <p class="sub">
@@ -561,6 +660,5 @@ Overhead:                  10.3%</pre>
   <p class="fine">Kein Produkt. Ein Experiment, das man nachmessen kann.</p>
 </footer>
 
-<script src="main.js"></script>
-</body>
-</html>
+  <script src="main.js"></script>
+  <script src="sandbox-viz.js"></script>
