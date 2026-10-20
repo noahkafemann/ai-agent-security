@@ -24,12 +24,11 @@ python3 agoris.py test         # kompletter Check</code></pre>
 <p><strong>Voraussetzungen:</strong></p>
 <ul><li>Python ≥ 3.8 (System liefert meist 3.10+)</li><li>Kernel ≥ 3.8 (User-Namespaces)</li><li><code>unshare -Ur true</code> sollte funktionieren</li></ul>
 <p>Falls <code>python3</code> nicht gefunden wird, probiere <code>python</code>:</p>
-<pre><code class="language-bash">python --version   # manche Systeme nennen es &#x27;python&#x27; statt &#x27;python3&#x27;</code></pre>
+<pre><code class="language-bash">python --version   # manche Systeme nennen es &#39;python&#39; statt &#39;python3&#39;</code></pre>
 <h3>2. Windows</h3>
 <p><strong>Empfehlung: WSL2</strong> (Windows-Subsystem für Linux, Version 2)</p>
-<p>Der einfachste Weg: Nutze die mitgelieferten Startskripte — sie erkennen
-automatisch WSL2, Docker oder Codespaces:</p>
-<pre><code class="language-batch">REM In cmd.exe (Eingabeaufforderung):
+<p>Der einfachste Weg: Nutze die mitgelieferten Startskripte — sie erkennen automatisch WSL2, Docker oder Codespaces:</p>
+<pre><code class="language-cmd">REM In cmd.exe (Eingabeaufforderung):
 run.cmd doctor
 
 REM In PowerShell:
@@ -39,8 +38,8 @@ REM In PowerShell:
 <p><strong>Falls du WSL2 manuell installieren willst:</strong></p>
 <p>In PowerShell <strong>als Administrator</strong>:</p>
 <pre><code class="language-powershell">wsl --install</code></pre>
-<p>Starte den Rechner neu, wenn Windows danach fragt. Dann öffnest du das neue "Ubuntu"-Fenster und dort:</p>
-<pre><code class="language-bash">sudo apt update && sudo apt install -y git python3
+<p>Starte den Rechner neu, wenn Windows danach fragt. Dann öffnest du das neue &quot;Ubuntu&quot;-Fenster und dort:</p>
+<pre><code class="language-bash">sudo apt update &amp;&amp; sudo apt install -y git python3
 git clone https://github.com/noahkafemann/ai-agent-security.git
 cd ai-agent-security
 python3 agoris.py doctor</code></pre>
