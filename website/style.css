@@ -934,3 +934,16 @@ ul.mess span { display: block; font-size: 14px; color: var(--muted); }
   .sandbox-layout { grid-template-columns: 1fr; }
   .sandbox-sidebar { max-height: 300px; }
 }
+
+/* Enhanced sandbox visualization */
+.agent-eye { fill: #58a6ff; }
+.agent-mouth { stroke: #58a6ff; }
+.fs-header { fill: rgba(63, 185, 80, 0.3); stroke: #3fb950; stroke-width: 1; }
+.fs-file { fill: rgba(63, 185, 80, 0.25); stroke: #3fb950; stroke-width: 1; }
+.term-text { font-family: var(--mono); font-size: 9px; fill: #3fb950; }
+.term-cursor { stroke: #3fb950; stroke-width: 2; animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.proc-box { fill: rgba(163, 113, 247, 0.3); stroke: #a371f7; stroke-width: 1; }
+.net-node { fill: #f78166; }
+.net-line { stroke: #f78166; stroke-width: 2; }
+.comp-text.tiny { font-size: 7.5px; }
