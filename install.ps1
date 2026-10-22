@@ -5,10 +5,12 @@
 # einfach mit Doppelklick über install.bat starten oder direkt so aufrufen:
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
+#
+# Ohne Argument baut es das Image und startet das interaktive Menü.
 
 param(
     [Parameter(ValueFromRemainingArguments=$true)]
-    [string[]]$Args
+    [string[]]$CliArgs
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,8 +24,15 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 
 function Test-DockerAvailable {
-    $null = docker --version 2>$null
-    return $LASTEXITCODE -eq 0
+    # Fehlt docker ganz, ist der Aufruf ein Fehler und keine Fehlermeldung.
+    # Ohne try/catch bricht das Skript mit einem Stapelabbruch ab, statt die
+    # eigene Anleitung zu zeigen.
+    try {
+        $null = docker --version 2>$null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
 }
 
 function Test-DockerRunning {
@@ -52,13 +61,23 @@ function Show-Help {
     Write-Host ""
 }
 
-if ($Args.Count -eq 0 -or $Args[0] -in @("help", "-h", "--help", "/?")) {
-    Show-Help
-    exit 0
-}
+# Ohne Argument: Image bauen und das Menü starten - das ist der Weg, den
+# install.bat (Doppelklick) nimmt. Nur ausdrückliche Hilfe-Anfragen zeigen
+# nur die Hilfe.
+$command = "start"
+$remainingArgs = @()
 
-$command = $Args[0]
-$remainingArgs = if ($Args.Count -gt 1) { $Args[1..($Args.Count-1)] } else { @() }
+if ($CliArgs.Count -gt 0) {
+    $first = $CliArgs[0]
+    if ($first -eq "help") {
+        Show-Help
+        exit 0
+    }
+    $command = $first
+    if ($CliArgs.Count -gt 1) {
+        $remainingArgs = $CliArgs[1..($CliArgs.Count - 1)]
+    }
+}
 
 if (-not (Test-DockerAvailable)) {
     Write-Host "FEHLER: Docker ist nicht installiert oder nicht im PATH." -ForegroundColor Red

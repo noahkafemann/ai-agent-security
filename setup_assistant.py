@@ -146,7 +146,9 @@ def main():
             print('Oder im Menü → Option 10')
         elif choice == '4':
             print('\nDetaillierte Anleitung in README.md')
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, EOFError):
+        # EOFError: die Eingabe ist geschlossen (Piping, Piping aus einem
+        # anderen Programm). Dann einfach beenden - kein Absturz.
         pass
 
 if __name__ == '__main__':

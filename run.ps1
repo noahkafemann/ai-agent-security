@@ -18,25 +18,44 @@
 
 param(
     [Parameter(ValueFromRemainingArguments=$true)]
-    [string[]]$Args
+    [string[]]$CliArgs
 )
 
 $ErrorActionPreference = "Stop"
 
 function Test-Wsl {
-    $r = wsl --status 2>$null
-    return $LASTEXITCODE -eq 0
+    # "wsl" gibt es auf manchen Rechnern gar nicht - dann ist der Aufruf ein
+    # Fehler und keine Fehlermeldung. Deshalb der try/catch.
+    try {
+        $null = wsl --status 2>$null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
 }
 
 function Test-Docker {
-    $r = docker version 2>$null
-    return $LASTEXITCODE -eq 0
+    try {
+        $null = docker version 2>$null
+        return $LASTEXITCODE -eq 0
+    } catch {
+        return $false
+    }
+}
+
+function Get-WslPath {
+    # "C:\Users\kafemann\repo" -> "/mnt/c/Users/kafemann/repo"
+    $pfad = (Get-Location).Path
+    if ($pfad -match '^([A-Za-z]):[\\/](.*)$') {
+        return "/mnt/" + $matches[1].ToLower() + "/" + $matches[2].Replace("\", "/")
+    }
+    return $pfad.Replace("\", "/")
 }
 
 function Show-Help {
     Write-Host "AGORIS auf Windows" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "Verwendung: .\run.ps1 <befehl>"
+    Write-Host "Verwendung: .\run.ps1 <befehl>" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Befehle:"
     Write-Host "  doctor      - Prüft, ob Linux-Umgebung funktioniert"
@@ -61,19 +80,21 @@ Write-Host "AGORIS — Startvorbereitung auf Windows" -ForegroundColor Cyan
 Write-Host ""
 
 # Hilfe anzeigen
-if ($Args.Count -eq 0 -or $Args[0] -in @("help", "-h", "--help", "/?")) {
+if ($CliArgs.Count -eq 0 -or $CliArgs[0] -eq "help") {
     Show-Help
     exit 0
 }
 
-$command = $Args[0]
-$remainingArgs = $Args[1..($Args.Count-1)]
+$command = $CliArgs[0]
+# Ohne weitere Argumente bleibt die Liste leer - sonst greift der Bereich
+# 1..0 und liefert einen Null-Wert, der als Argument mitgegeben wird.
+$remainingArgs = if ($CliArgs.Count -gt 1) { $CliArgs[1..($CliArgs.Count - 1)] } else { @() }
 
 # Option 1: WSL2
 if (Test-Wsl) {
     Write-Host "WSL2 gefunden." -ForegroundColor Green
-    $repoPath = (Get-Location).Path.Replace(":", "").Replace("\", "/")
-    $wslArgs = "cd /mnt/c/$repoPath && python3 agoris.py $command $($remainingArgs -join ' ')"
+    $repoPath = Get-WslPath
+    $wslArgs = "cd '$repoPath' && python3 agoris.py $command $($remainingArgs -join ' ')"
     Write-Host "Führe in WSL2 aus: python3 agoris.py $command $($remainingArgs -join ' ')" -ForegroundColor Gray
     try {
         wsl bash -lc $wslArgs

@@ -1,2 +1,2 @@
 sample_agent.py
-custom_runner.py test
+custom_runner.py sample_agent.py research 60
