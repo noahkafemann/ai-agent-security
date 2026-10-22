@@ -16,12 +16,15 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, Optional
 
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+DEFAULT_OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+DEFAULT_OLLAMA_URL = "http://localhost:11434/v1/chat/completions"
 DEFAULT_MAX_TOKENS = 1024
 
 # Werkzeug-Schemata. Der Agent kann ausschliesslich diese Werkzeuge aufrufen -
@@ -184,6 +187,86 @@ def _echo(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[s
     }
 
 
+def _openai(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+    key = os.environ.get("AGORIS_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+    if not key:
+        raise BrokerError("AGORIS_API_KEY/OPENAI_API_KEY fehlt im Wirt")
+    model = os.environ.get("AGORIS_MODEL", "gpt-4o-mini")
+    url = os.environ.get("AGORIS_API_URL", DEFAULT_OPENAI_URL)
+    system_msg = {"role": "system", "content": _tool_choice_prompt(tools)}
+    payload = {
+        "model": model,
+        "messages": [system_msg] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("role") in ("user", "assistant")],
+        "max_tokens": DEFAULT_MAX_TOKENS,
+        "temperature": 0,
+    }
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json", "authorization": f"Bearer {key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise BrokerError(f"HTTP {exc.code}: {exc.read()[:200].decode('utf-8', 'replace')}") from exc
+    except Exception as exc:
+        raise BrokerError(str(exc)) from exc
+    text = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+    return {"text": text, "usage": data.get("usage", {})}
+
+
+def _ollama(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+    model = os.environ.get("AGORIS_MODEL", "llama3.1:8b")
+    url = os.environ.get("AGORIS_API_URL", DEFAULT_OLLAMA_URL)
+    system_msg = {"role": "system", "content": _tool_choice_prompt(tools)}
+    payload = {
+        "model": model,
+        "messages": [system_msg] + [{"role": m["role"], "content": m["content"]} for m in messages if m.get("role") in ("user", "assistant")],
+        "max_tokens": DEFAULT_MAX_TOKENS,
+        "temperature": 0,
+        "stream": False,
+    }
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"content-type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise BrokerError(f"HTTP {exc.code}: {exc.read()[:200].decode('utf-8', 'replace')}") from exc
+    except Exception as exc:
+        raise BrokerError(str(exc)) from exc
+    text = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+    return {"text": text}
+
+
+def _random_walk(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+    step = sum(1 for m in messages if m.get("role") == "assistant")
+    names = [t["name"] for t in tools if t["name"] != "finish"]
+    if step >= 3 and names and random.random() < 0.3:
+        return {"text": json.dumps({"thought": "zufaellig beendet", "tool": "finish", "args": {"answer": "random_walk: beendet"}}, ensure_ascii=False)}
+    if not names:
+        return {"text": json.dumps({"thought": "nur finish", "tool": "finish", "args": {"answer": "random_walk: nur finish"}}, ensure_ascii=False)}
+    tool = random.choice(names)
+    args = {}
+    if tool == "read_file":
+        args["path"] = random.choice(["aufgabe.md", "notizen.txt", "frage.md", "."])
+    elif tool == "list_dir":
+        args["path"] = random.choice([".", "/work"])
+    elif tool == "write_file":
+        args = {"path": f"rand_{step}.txt", "content": "x" * 10}
+    elif tool == "run_python":
+        args["code"] = "print('hi')"
+    elif tool == "fetch_url":
+        args["url"] = "http://example.org"
+    return {"text": json.dumps({"thought": "random_walk", "tool": tool, "args": args}, ensure_ascii=False)}
+
+
 def _anthropic(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
     key = os.environ.get("AGORIS_API_KEY", "")
     if not key:
@@ -199,11 +282,7 @@ def _anthropic(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> D
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "content-type": "application/json",
-            "x-api-key": key,
-            "anthropic-version": ANTHROPIC_VERSION,
-        },
+        headers={"content-type": "application/json", "x-api-key": key, "anthropic-version": ANTHROPIC_VERSION},
         method="POST",
     )
     try:
@@ -221,6 +300,10 @@ PROVIDERS: Dict[str, Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict
     "simulated": _simulated,
     "echo": _echo,
     "anthropic": _anthropic,
+    "openai": _openai,
+    "ollama": _ollama,
+    "random_walk": _random_walk,
+    "adversarial": _adversarial,
 }
 
 
