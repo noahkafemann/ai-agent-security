@@ -356,14 +356,13 @@ def setup_filesystem(
                 continue
             _ro_bind(host_path, host_path, jail_root, bound)
             bound.append(host_path)
-
-    for source, target_path in extra_binds or []:
-        if not os.path.exists(source):
-            events.append(f"Extra-Bind {source} fehlt - uebersprungen")
-            continue
-        _ro_bind(source, target_path, jail_root, bound)
-        bound.append(f"{source} -> {target_path}")
-
+        multilib = multiarch_lib_dir()
+        if multilib:
+            _ro_bind(multilib, multilib, jail_root, bound)
+        loader = loader_path()
+        if loader:
+            _ro_bind(loader, loader, jail_root, bound)
+        events.append("System-Laufzeit eingebunden (read-only) - minimales /etc bleibt erhalten")
     events.append("nur lesbar eingebunden: " + ", ".join(bound))
 
     _build_minimal_etc(jail_root, events)

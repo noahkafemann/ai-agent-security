@@ -30,12 +30,21 @@ class ToolError(Exception):
     pass
 
 
-def _resolve(path: str) -> str:
+def _resolve(path: str, policy=None) -> str:
     """Wandelt jeden Pfad in einen sicheren absoluten Pfad unterhalb von /work."""
     candidate = path if path.startswith("/") else os.path.join(WORK_ROOT, path)
     real = os.path.realpath(candidate)
     if real != WORK_ROOT and not real.startswith(WORK_ROOT + os.sep):
         raise ToolError(f"Pfad '{path}' verlaesst das Arbeitsverzeichnis - abgelehnt")
+    if policy is not None:
+        max_depth = int(policy.filesystem.get("max_path_depth", 12))
+        rel = os.path.relpath(real, WORK_ROOT)
+        if rel == ".":
+            depth = 0
+        else:
+            depth = len([p for p in rel.split(os.sep) if p and p != "."])
+        if depth > max_depth:
+            raise ToolError(f"Pfad-Tiefe {depth} überschreitet Maximum {max_depth}")
     return real
 
 
@@ -59,7 +68,7 @@ class ToolBox:
 
     # --------------------------------------------------------------- Werkzeuge
     def read_file(self, path: str = "", **_) -> Dict[str, Any]:
-        real = _resolve(path)
+        real = _resolve(path, self.policy)
         if not self.policy.path_readable(real):
             raise ToolError(f"'{path}' ist nicht lesbar (Policy)")
         if not os.path.isfile(real):
@@ -76,7 +85,7 @@ class ToolBox:
         }
 
     def write_file(self, path: str = "", content: str = "", **_) -> Dict[str, Any]:
-        real = _resolve(path)
+        real = _resolve(path, self.policy)
         if not self.policy.path_writable(real):
             raise ToolError(f"'{path}' ist nicht beschreibbar (Policy)")
         data = (content or "").encode("utf-8")
@@ -89,7 +98,7 @@ class ToolBox:
         return {"ok": True, "path": path, "bytes": len(data)}
 
     def list_dir(self, path: str = ".", **_) -> Dict[str, Any]:
-        real = _resolve(path)
+        real = _resolve(path, self.policy)
         if not self.policy.path_readable(real):
             raise ToolError(f"'{path}' ist nicht lesbar (Policy)")
         if not os.path.isdir(real):
