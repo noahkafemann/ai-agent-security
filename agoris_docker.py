@@ -59,19 +59,25 @@ def build_image(repo_dir):
 
 def run_agoris(args, repo_dir):
     """Startet AGORIS in Docker."""
-    cmd = ["docker", "run", "--rm", "--privileged", "-it"]
+    cmd = ["docker", "run", "--rm", "--privileged"]
+    # Ein TTY gibt es nur, wenn wirklich eines da ist - sonst bricht Docker
+    # mit "the input device is not a TTY" ab (z.B. in CI).
+    cmd.append("-i")
+    if sys.stdin is not None and sys.stdin.isatty():
+        cmd.append("-t")
     # Mount Projektverzeichnis
     cmd.extend(["-v", f"{repo_dir}:/agoris", "-w", "/agoris"])
     # Starte AGORIS
     cmd.append("agoris")
     cmd.extend(["python3", "agoris.py"] + args)
-    
+
     try:
         subprocess.run(cmd, cwd=repo_dir, check=True)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
     except FileNotFoundError:
         print("Docker nicht gefunden.")
+        sys.exit(1)
 
 
 def main():

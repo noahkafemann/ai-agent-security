@@ -20,7 +20,7 @@ python3 agoris.py doctor</code></pre>
 <table><thead><tr><th>Plattform</th><th>Einfachste Lösung</th><th>Alternative</th></tr></thead><tbody><tr><td><strong>Windows</strong></td><td>WSL2: <code>wsl --install</code> in PowerShell</td><td>Docker Desktop, GitHub Codespaces</td></tr><tr><td><strong>macOS</strong></td><td>GitHub Codespaces (Browser)</td><td>Docker Desktop, Linux-VM</td></tr><tr><td><strong>Linux</strong></td><td>direkt — nichts weiter nötig</td><td>—</td></tr></tbody></table>
 <p>Eine schrittweise Anleitung für alle Plattformen ist in <a href="INSTALLATION.html"><code>INSTALLATION.md</code></a>. Das Repository enthält auch ein <code>Dockerfile</code> und ein <code>.devcontainer/devcontainer.json</code> für Codespaces.</p>
 <h2>Erste Schritte</h2>
-<pre><code class="language-bash">python3 agoris.py run &quot;Lies &#39;aufgabe.md&#39; und fasse zusammen.&quot;   # Demo
+<pre><code class="language-bash">python3 agoris.py run &quot;Lies &#x27;aufgabe.md&#x27; und fasse zusammen.&quot;   # Demo
 python3 agoris.py show research                                  # Policy ansehen
 python3 agoris.py attacks                                        # 14 Versuche
 python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen</code></pre>
@@ -28,10 +28,10 @@ python3 agoris.py verify runs/20261004-093743-minimal            # Log prüfen</
 <table><thead><tr><th>Datei</th><th>Inhalt</th></tr></thead><tbody><tr><td><code>audit.jsonl</code></td><td>jedes Ereignis mit Hashkette</td></tr><tr><td><code>bericht.md</code></td><td>lesbarer Bericht</td></tr><tr><td><code>bericht.json</code></td><td>dasselbe für Skripte</td></tr><tr><td><code>jail/</code></td><td>das aufgebaute Gefängnis-Dateisystem</td></tr><tr><td><code>payload/agoris/</code></td><td>Kopie der Runtime (read-only eingebunden)</td></tr></tbody></table>
 <h2>Eigene Aufgaben</h2>
 <p>Eine Aufgabe ist eine Textdatei. Für <code>research</code> ist <code>/work</code> vorbelegt mit <code>aufgabe.md</code>, <code>frage.md</code>, <code>notizen.txt</code>.</p>
-<pre><code class="language-bash">cat &gt; aufgaben/meine.md &lt;&lt;&#39;EOF&#39;
-1. Lies &#39;daten.csv&#39; aus /work.
+<pre><code class="language-bash">cat &gt; aufgaben/meine.md &lt;&lt;&#x27;EOF&#x27;
+1. Lies &#x27;daten.csv&#x27; aus /work.
 2. Berechne den Mittelwert je Spalte.
-3. Schreibe das Ergebnis nach &#39;auswertung.md&#39;.
+3. Schreibe das Ergebnis nach &#x27;auswertung.md&#x27;.
 EOF
 
 python3 agoris.py run -p research -t aufgaben/meine.md</code></pre>
@@ -65,7 +65,7 @@ python3 agoris.py run &quot;...&quot; -p research -m anthropic</code></pre>
 <p>Für einen eigenen Anbieter eine Funktion in <code>agoris/model.py</code> ergänzen und in <code>PROVIDERS</code> eintragen:</p>
 <pre><code class="language-python">def _mein_anbieter(messages, tools):
     ...
-    return {&quot;text&quot;: &#39;{&quot;thought&quot;: &quot;...&quot;, &quot;tool&quot;: &quot;finish&quot;, &quot;args&quot;: {&quot;answer&quot;: &quot;...&quot;}}&#39;}
+    return {&quot;text&quot;: &#x27;{&quot;thought&quot;: &quot;...&quot;, &quot;tool&quot;: &quot;finish&quot;, &quot;args&quot;: {&quot;answer&quot;: &quot;...&quot;}}&#x27;}
 
 PROVIDERS[&quot;mein&quot;] = _mein_anbieter</code></pre>
 <p>Ein Agent-Provider muss also nie im Gefängnis laufen — er wird vom Wirt aufgerufen, bekommt die Konversation und gibt eine Antwort als JSON zurück. Jeder Provider ist ein &quot;Agent&quot; in diesem Sinne.</p>
@@ -88,7 +88,7 @@ python3 agoris.py test --only key_leak,cpu_bomb    # nur zwei Angriffe</code></p
 <pre><code class="language-python">def zaehle_zeilen(self, path: str = &quot;&quot;, **_) -&gt; Dict[str, Any]:
     real = _resolve(path)                      # Pfad-Fessel, nicht selbst bauen
     if not self.policy.path_readable(real):
-        raise ToolError(f&quot;&#39;{path}&#39; ist nicht lesbar&quot;)
+        raise ToolError(f&quot;&#x27;{path}&#x27; ist nicht lesbar&quot;)
     with open(real, encoding=&quot;utf-8&quot;) as fh:
         return {&quot;ok&quot;: True, &quot;path&quot;: path, &quot;zeilen&quot;: sum(1 for _ in fh)}</code></pre>
 <p>Dann in <code>ToolBox._table</code> eintragen, in <code>agoris/model.py</code> ein Schema ergänzen (sonst kennt das Modell das Werkzeug nicht) und in <code>DEFAULT_PODUCTS</code> in <code>agoris/policy.py</code> erlauben.</p>

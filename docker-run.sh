@@ -26,19 +26,21 @@ if ! docker version >/dev/null 2>&1; then
     exit 1
 fi
 
+# Setze Kommando
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 # Erstelle Docker Image falls nicht vorhanden
 if ! docker image inspect agoris >/dev/null 2>&1; then
     echo "Baue AGORIS Docker Image..."
-    if ! docker build -t agoris .; then
+    # Build-Kontext ist das Verzeichnis dieses Skripts - sonst wird der
+    # falsche Ordner gebaut, wenn das Skript von woanders aufgerufen wird.
+    if ! docker build -t agoris "$SCRIPT_DIR"; then
         echo "Fehler beim Bauen des Images."
         exit 1
     fi
     echo "Image erfolgreich gebaut."
 fi
-
-# Setze Kommando
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
 
 ARG="${1:-start}"
 if [[ "$ARG" == "menu" || "$ARG" == "interaktiv" ]]; then

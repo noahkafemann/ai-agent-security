@@ -39,11 +39,11 @@ start = time.time()
 x = 0.0
 for i in range(500000):
     x += math.sin(i) * math.cos(i)
-print(f&#39;Loops: 500000, Result: {x:.6f}, Time: {time.time()-start:.3f}s&#39;)</code></pre>
+print(f&#x27;Loops: 500000, Result: {x:.6f}, Time: {time.time()-start:.3f}s&#x27;)</code></pre>
 <p>Der Code ist bewusst <strong>rechenlastig</strong> (kein I/O, kein Netz), um den reinen CPU-Overhead der Sandbox zu messen. I/O-lastige Aufgaben würden andere Engpässe zeigen.</p>
 <h2>Ausgabe verstehen</h2>
 <pre><code>AGORIS - sichere Umgebung fuer unzuverlaessige KI-Agenten
-Sandbox-Benchmark (Policy &#39;minimal&#39;)
+Sandbox-Benchmark (Policy &#x27;minimal&#x27;)
 Wiederholungen: 5  |  Warmup: 1
 Ordner: runs/20261013-123456-benchmark-minimal
 ------------------------------------------------------------
@@ -72,7 +72,7 @@ Hinweis: Der Overhead besteht aus:
 <h2>Was der Overhead wirklich kostet</h2>
 <p>Der Benchmark misst <strong>Gesamt-Overhead</strong> = Summe aller Schichten. Zum Aufschlüsseln:</p>
 <pre><code class="language-bash"># 1. Nur Namespaces + chroot (kein seccomp, keine Limits)
-python3 agoris.py benchmark -p minimal -f &#39;{&quot;system&quot;:{&quot;seccomp&quot;:false,&quot;namespaces&quot;:[&quot;user&quot;,&quot;mount&quot;,&quot;pid&quot;,&quot;net&quot;]}}&#39;
+python3 agoris.py benchmark -p minimal -f &#x27;{&quot;system&quot;:{&quot;seccomp&quot;:false,&quot;namespaces&quot;:[&quot;user&quot;,&quot;mount&quot;,&quot;pid&quot;,&quot;net&quot;]}}&#x27;
 
 # 2. Mit seccomp
 python3 agoris.py benchmark -p minimal

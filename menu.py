@@ -8,7 +8,6 @@ Datei als Agenten in der Sandbox.
 
 import os
 import sys
-import subprocess
 
 # Sicherstellen, dass wir das AGORIS-Modul importieren können
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -19,8 +18,34 @@ from agoris.policy import Policy
 from agoris.launcher import run_snippet
 from agoris.audit import AuditLog
 from agoris import style
-import tempfile
-import shutil
+
+
+def frage(text, standard=""):
+    """Fragt den Nutzer nach einer Eingabe.
+
+    Ist die Eingabe geschlossen (Eingabeumleitung, Piping), endet das Menü
+    sauber - statt mit einem EOFError-Absturz.
+    """
+    try:
+        antwort = input(text).strip()
+    except EOFError:
+        print()
+        raise SystemExit(0)
+    return antwort or standard
+
+
+def policy_vorhanden(name):
+    """Prueft die Policy, bevor sie benutzt wird.
+
+    Sonst bricht der Lauf mit einem DateiNotFoundError ab - mitten im Menü,
+    ohne Hinweis, was falsch war.
+    """
+    verfuegbar = Policy.available()
+    if name not in verfuegbar:
+        print(style.error(f"Policy '{name}' nicht gefunden."))
+        print(style.info(f"Verfuegbar: {', '.join(verfuegbar) if verfuegbar else '(keine)'}"))
+        return False
+    return True
 
 
 def print_banner():
@@ -54,13 +79,18 @@ def run_command(cmd_args):
         return cli.main()
     except SystemExit as e:
         return e.code
+    except (FileNotFoundError, ValueError) as e:
+        # Unbekannte Policy, kaputte Datei: verständliche Meldung statt
+        # eines Stapelabbruchs mitten im Menü.
+        print(style.error(f"Befehl fehlgeschlagen: {e}"))
+        return 2
     finally:
         sys.argv = old_argv
 
 
 def run_custom_agent():
     """Führt eine benutzerdefinierte Python-Datei als Snippet in der Sandbox aus."""
-    file_path = input(style.info("Pfad zur Python-Datei eingeben: ")).strip()
+    file_path = frage(style.info("Pfad zur Python-Datei eingeben: "))
     if not file_path:
         print(style.error("Kein Pfad angegeben."))
         return
@@ -77,20 +107,18 @@ def run_custom_agent():
 
     # Policy laden (minimal)
     policy = Policy.load("minimal")
-    # Erstelle ein temporäres Verzeichnis für den Lauf
-    with tempfile.TemporaryDirectory(prefix="agoris_menu_") as tmpdir:
-        run_dir = os.path.join(tmpdir, "run")
-        os.makedirs(run_dir, exist_ok=True)
-        # Audit-Log erstellen (optional, aber wir wollen es für die Sauberkeit)
-        audit_path = os.path.join(run_dir, "audit.jsonl")
-        audit = AuditLog(audit_path, echo=False)
+    # Laufordner unter runs/ - kein temporaeres Verzeichnis: sonst ist das
+    # Audit-Log im Moment der Ausgabe schon wieder geloescht.
+    run_dir = cli._new_run_dir("custom-agent")
+    audit_path = os.path.join(run_dir, "audit.jsonl")
+    audit = AuditLog(audit_path, echo=False)
 
-        print(style.header(f"Ausführung von {file_path} in der Sandbox (Policy: minimal)"))
-        print(style.info(f"Arbeitsverzeichnis: {run_dir}"))
-        print(style.dim_text("-" * 60))
+    print(style.header(f"Ausführung von {file_path} in der Sandbox (Policy: minimal)"))
+    print(style.info(f"Arbeitsverzeichnis: {run_dir}"))
+    print(style.dim_text("-" * 60))
 
+    try:
         # Führe den Snippet aus
-        from agoris.launcher import run_snippet
         result = run_snippet(
             code=code,
             policy=policy,
@@ -99,28 +127,29 @@ def run_custom_agent():
             timeout=30.0,  # Standardtimeout
             label="custom_agent",
         )
+    finally:
         audit.close()
 
-        print(style.dim_text("-" * 60))
-        print(style.info(f"Ausführung beendet nach {result.seconds}s"))
-        print(style.info(f"Exit Code: {result.exit_code}"))
-        print(style.info(f"Signal: {result.signal}"))
-        if result.stdout:
-            print(style.header("STDOUT:"))
-            print(result.stdout.rstrip())
-        if result.stderr:
-            print(style.header("STDERR:"))
-            print(result.stderr.rstrip()[:1000])  # Begrenze die Ausgabe
+    print(style.dim_text("-" * 60))
+    print(style.info(f"Ausführung beendet nach {result.seconds}s"))
+    print(style.info(f"Exit Code: {result.exit_code}"))
+    print(style.info(f"Signal: {result.signal}"))
+    if result.stdout:
+        print(style.header("STDOUT:"))
+        print(result.stdout.rstrip())
+    if result.stderr:
+        print(style.header("STDERR:"))
+        print(result.stderr.rstrip()[:1000])  # Begrenze die Ausgabe
 
-        # Zeige ggf. den Audit-Log an
-        print(style.info(f"\nAudit-Log gespeichert unter: {audit_path}"))
+    # Zeige ggf. den Audit-Log an
+    print(style.info(f"\nAudit-Log gespeichert unter: {audit_path}"))
 
 
 def main():
     while True:
         print_banner()
         show_menu()
-        choice = input(style.info("Deine Wahl: ")).strip()
+        choice = frage(style.info("Deine Wahl: "))
         if choice == "0":
             print(style.success("Auf Wiedersehen!"))
             break
@@ -131,38 +160,45 @@ def main():
         elif choice == "3":
             run_command(["policies"])
         elif choice == "4":
-            policy_name = input(style.info("Policy name (default: minimal): ")).strip() or "minimal"
-            run_command(["show", policy_name])
+            policy_name = frage(style.info("Policy name (default: minimal): "), "minimal")
+            if policy_vorhanden(policy_name):
+                run_command(["show", policy_name])
         elif choice == "5":
-            task = input(style.info("Aufgabe (oder leer für Standard): ")).strip()
+            task = frage(style.info("Aufgabe (oder leer für Standard): "))
             if not task:
                 task = "Lies 'aufgabe.md' und loese die Aufgabe."
-            policy = input(style.info("Policy (default: minimal): ")).strip() or "minimal"
+            policy = frage(style.info("Policy (default: minimal): "), "minimal")
+            if not policy_vorhanden(policy):
+                continue
             args = ["run", task, "-p", policy]
             # Zusätzlich könnten wir task-file oder file unterstützen, aber fürs Menü halten wir es einfach
             run_command(args)
         elif choice == "6":
-            provider = input(style.info("Provider (default: simulated,echo): ")).strip() or "simulated,echo"
-            policy = input(style.info("Policy (default: minimal,research): ")).strip() or "minimal,research"
+            provider = frage(style.info("Provider (default: simulated,echo): "), "simulated,echo")
+            policy = frage(style.info("Policy (default: minimal,research): "), "minimal,research")
             run_command(["test", "--provider", provider, "--policy", policy])
         elif choice == "7":
-            policy = input(style.info("Policy (default: minimal): ")).strip() or "minimal"
-            only = input(style.info("Nur bestimmte Angriffe (kommagetrennt, optional): ")).strip()
+            policy = frage(style.info("Policy (default: minimal): "), "minimal")
+            if not policy_vorhanden(policy):
+                continue
+            only = frage(style.info("Nur bestimmte Angriffe (kommagetrennt, optional): "))
             args = ["attacks", "-p", policy]
             if only:
                 args.extend(["--only", only])
             run_command(args)
         elif choice == "8":
-            run_dir = input(style.info("Pfad zum Laufordner oder audit.jsonl: ")).strip()
+            run_dir = frage(style.info("Pfad zum Laufordner oder audit.jsonl: "))
             if not run_dir:
                 print(style.warning("Kein Pfad angegeben."))
                 continue
             run_command(["verify", run_dir])
         elif choice == "9":
-            policy = input(style.info("Policy (default: minimal): ")).strip() or "minimal"
-            iterations = input(style.info("Iterationen (default: 5): ")).strip() or "5"
-            warmup = input(style.info("Warmup (default: 1): ")).strip() or "1"
-            code = input(style.info("Benutzerdefinierter Benchmark-Code (optional): ")).strip()
+            policy = frage(style.info("Policy (default: minimal): "), "minimal")
+            if not policy_vorhanden(policy):
+                continue
+            iterations = frage(style.info("Iterationen (default: 5): "), "5")
+            warmup = frage(style.info("Warmup (default: 1): "), "1")
+            code = frage(style.info("Benutzerdefinierter Benchmark-Code (optional): "))
             args = ["benchmark", "-p", policy, "-i", iterations, "-w", warmup]
             if code:
                 args.extend(["-c", code])
@@ -171,7 +207,7 @@ def main():
             run_custom_agent()
         else:
             print(style.warning("Ungültige Auswahl. Bitte erneut versuchen."))
-        input(style.dim_text("\nDrücke Enter, um zum Menü zurückzukehren..."))
+        frage(style.dim_text("\nDrücke Enter, um zum Menü zurückzukehren..."))
 
 
 if __name__ == "__main__":

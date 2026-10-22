@@ -8,14 +8,19 @@ REM   docker-run.cmd        (startet interaktives Menü)
 REM   docker-run.cmd doctor (führt doctor aus)
 REM   docker-run.cmd menu   (startet interaktives Menü)
 
-setlocal
+setlocal enabledelayedexpansion
+
+REM In das Verzeichnis des Skripts wechseln: sonst wird beim Bauen und beim
+REM Mounten der falsche Ordner benutzt, sobald das Skript von woanders
+REM aufgerufen wird.
+cd /d "%~dp0"
 
 echo AGORIS - Einfache Docker-Ausführung für Windows
 echo ================================================
 
 REM Überprüfe ob Docker läuft
 docker version >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo Fehler: Docker Desktop scheint nicht zu laufen.
     echo.
     echo Bitte starte Docker Desktop und versuche es erneut.
@@ -26,10 +31,10 @@ if %ERRORLEVEL% NEQ 0 (
 
 REM Erstelle Docker Image falls nicht vorhanden
 docker image inspect agoris >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
+if !ERRORLEVEL! NEQ 0 (
     echo Baue AGORIS Docker Image...
-    docker build -t agoris .
-    if %ERRORLEVEL% NEQ 0 (
+    docker build -t agoris "%~dp0"
+    if !ERRORLEVEL! NEQ 0 (
         echo Fehler beim Bauen des Images.
         pause
         exit /b 1
@@ -38,21 +43,27 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 REM Setze Kommando
-set "CMD=python3 agoris.py"
-set "ARG=%1"
+set "AGORIS_CMD=python3 agoris.py"
+set "ARG=%~1"
 if "%ARG%"=="" set "ARG=menu"
-if "%ARG%"=="menu" set "ARG=start"
-if "%ARG%"=="interaktiv" set "ARG=start"
+if /i "%ARG%"=="menu" set "ARG=start"
+if /i "%ARG%"=="interaktiv" set "ARG=start"
+set "AGORIS_CMD=!AGORIS_CMD! !ARG!"
 
-REM Füge weitere Argumente hinzu
+REM Weitere Argumente: "%*" bleibt nach SHIFT unverändert, deshalb sammeln
+REM ich sie einzeln - sonst wird der Befehl doppelt uebergeben.
 shift
-set "ADDITIONAL=%*"
-if "%ADDITIONAL%" NEQ "" set "CMD=%CMD% %ADDITIONAL%"
+:collect_args
+if "%1"=="" goto :args_done
+set "AGORIS_CMD=!AGORIS_CMD! %1"
+shift
+goto :collect_args
+:args_done
 
 echo Starte AGORIS in Docker mit --privileged...
-echo Kommando: %CMD%
+echo Kommando: !AGORIS_CMD!
 echo.
 
 REM Starte Container
-docker run --rm --privileged -it -v "%CD%:/agoris" -w /agoris agoris %CMD%
-exit /b %ERRORLEVEL%
+docker run --rm --privileged -it -v "%~dp0:/agoris" -w /agoris agoris !AGORIS_CMD!
+exit /b !ERRORLEVEL!

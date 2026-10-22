@@ -6,8 +6,15 @@
 <title>AGORIS — sichere Umgebung für unzuverlässige KI-Agenten</title>
 <meta name="description" content="AGORIS ist eine Sandbox für KI-Agenten: Namespaces, chroot, Ressourcengrenzen, seccomp und Richtlinien-Proxy. Nur Standardbibliothek. Einfache Installation unter Windows über Docker Desktop.">
 <link rel="stylesheet" href="style.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script>
+  /* Designwahl vor dem ersten Bildaufbau setzen - sonst flackert die Seite. */
+  try {
+    var entwurf = localStorage.getItem("agoris-design");
+    if (entwurf === "hell" || entwurf === "dunkel") {
+      document.documentElement.setAttribute("data-theme", entwurf);
+    }
+  } catch (e) {}
+</script>
 </head>
 <body>
 <div class="scan" aria-hidden="true"></div>
@@ -27,11 +34,11 @@
       <li><a href="#blick">Innenansicht</a></li>
       <li><a href="#benchmark">Benchmark</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
-    <li><a href="#sandbox-vis">Sandbox-Vis</a></li>
-    <li><a href="#interaktiv">Live Demo</a></li>
-    <li><a href="#installation-guide">Install-Guide</a></li>
-    <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
-      <li><button id="theme-toggle" class="theme-toggle" aria-label="Design umschalten">🌓</button></li>
+      <li><a href="#sandbox-vis">Sandbox-Vis</a></li>
+      <li><a href="#interaktiv">Live Demo</a></li>
+      <li><a href="#installation-guide">Install-Guide</a></li>
+      <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
+      <li><button type="button" id="theme-toggle" class="theme-toggle" aria-label="Design umschalten" title="Hell / Dunkel umschalten">🌓</button></li>
     </ul>
   </nav>
 </header>
@@ -240,7 +247,7 @@
         <h3><code>anthropic</code></h3>
         <p>Echtes Sprachmodell über die Anthropic-API. Der API-Schlüssel liegt
         <em>im Wirt</em>, nie im Gefängnis. Testbar mit
-        <code>AGORIS_API_KEY=… AGORIS_MODEL=…</p>
+        <code>AGORIS_API_KEY=… AGORIS_MODEL=…</code></p>
       </article>
     </div>
     <p class="sub">
@@ -260,7 +267,7 @@
 [4/4] attacks:minimal ... OK
 [4/4] attacks:research ... OK
 
-ALLE 10 TESTS BESTANDEN</pre>
+ALLE 9 TESTS BESTANDEN</pre>
   </section>
 
   <section id="blick" class="inspect">
@@ -431,7 +438,7 @@ ALLE 10 TESTS BESTANDEN</pre>
     </p>
     <div class="sandbox-layout">
       <div class="sandbox-scene">
-        <svg viewBox="0 0 700 500" preserveAspectRatio="xMidYMid meet" aria-label="Sandbox-Visualisierung">
+        <svg viewBox="0 0 700 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Sandbox-Visualisierung">
           <!-- Hintergrundraster -->
           <defs>
             <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
@@ -519,9 +526,9 @@ ALLE 10 TESTS BESTANDEN</pre>
           <g id="eventPaths"></g>
         </svg>
         <div class="sandbox-controls">
-          <button id="demo-run" class="sandbox-btn primary">Demo-Ereignisse starten</button>
-          <button id="demo-clear" class="sandbox-btn">Zurücksetzen</button>
-          <button id="demo-step" class="sandbox-btn">Nächstes Ereignis</button>
+          <button type="button" id="demo-run" class="sandbox-btn primary">Demo-Ereignisse starten</button>
+          <button type="button" id="demo-clear" class="sandbox-btn">Zurücksetzen</button>
+          <button type="button" id="demo-step" class="sandbox-btn">Nächstes Ereignis</button>
         </div>
       </div>
       <div class="sandbox-sidebar">
@@ -547,6 +554,8 @@ ALLE 10 TESTS BESTANDEN</pre>
       Demo-Ereignisse sind reproduzierbar und klar als simuliert gekennzeichnet.
     </p>
   </section>
+
+  <section id="interaktiv" class="live-demo">
     <p class="eyebrow">Live-Demo</p>
     <h2>AGORIS im Browser ausprobieren</h2>
     <p class="sub">
@@ -569,11 +578,11 @@ ALLE 10 TESTS BESTANDEN</pre>
       </div>
       <div class="demo-commands">
         <h4>Befehle</h4>
-        <button class="demo-btn" data-cmd="doctor">python3 agoris.py doctor</button>
-        <button class="demo-btn" data-cmd="attacks">python3 agoris.py attacks</button>
-        <button class="demo-btn" data-cmd="test">python3 agoris.py test</button>
-        <button class="demo-btn" data-cmd="help">agoris --help</button>
-        <button class="demo-btn" data-cmd="clear">clear</button>
+        <button type="button" class="demo-btn" data-cmd="doctor">python3 agoris.py doctor</button>
+        <button type="button" class="demo-btn" data-cmd="attacks">python3 agoris.py attacks</button>
+        <button type="button" class="demo-btn" data-cmd="test">python3 agoris.py test</button>
+        <button type="button" class="demo-btn" data-cmd="help">agoris --help</button>
+        <button type="button" class="demo-btn" data-cmd="clear">clear</button>
       </div>
     </div>
   </section>
@@ -596,7 +605,7 @@ Overhead:                  10.3%</pre>
     </p>
     <div class="agent-grid">
       <article class="agent-card">
-        <h3>< 5%</h3>
+        <h3>&lt; 5%</h3>
         <p>Geringer Overhead. Sandbox kostet kaum Leistung.</p>
       </article>
       <article class="agent-card">
@@ -604,7 +613,7 @@ Overhead:                  10.3%</pre>
         <p>Moderat. Für die meisten Aufgaben vernachlässigbar.</p>
       </article>
       <article class="agent-card">
-        <h3>> 50%</h3>
+        <h3>&gt; 50%</h3>
         <p>Hoch. <code>seccomp: false</code> in Policy spart 5–15%.</p>
       </article>
     </div>
@@ -643,14 +652,14 @@ Overhead:                  10.3%</pre>
     <p class="eyebrow">Interaktiver Installationsguide</p>
     <h2>Finden Sie Ihren Weg zur Installation</h2>
     <p class="sub">Wählen Sie Ihr Betriebssystem, um eine maßgeschneiderte Anleitung zu erhalten.</p>
-    
+
     <div class="os-selector">
-      <button class="os-btn" data-os="windows">🪟 Windows</button>
-      <button class="os-btn" data-os="macos">🍎 macOS</button>
-      <button class="os-btn" data-os="linux">🐧 Linux</button>
-      <button class="os-btn" data-os="codespaces">☁️ GitHub Codespaces</button>
+      <button type="button" class="os-btn" data-os="windows">🪟 Windows</button>
+      <button type="button" class="os-btn" data-os="macos">🍎 macOS</button>
+      <button type="button" class="os-btn" data-os="linux">🐧 Linux</button>
+      <button type="button" class="os-btn" data-os="codespaces">☁️ GitHub Codespaces</button>
     </div>
-    
+
     <div id="os-instructions" class="os-instructions">
       <div class="os-placeholder">Wählen Sie ein Betriebssystem oben aus.</div>
     </div>
@@ -689,3 +698,5 @@ Overhead:                  10.3%</pre>
 
   <script src="main.js"></script>
   <script src="sandbox-viz.js"></script>
+</body>
+</html>

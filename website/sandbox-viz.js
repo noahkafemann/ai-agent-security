@@ -97,6 +97,15 @@
     }
   ];
 
+  /* Mittelpunkte der Komponenten - sie folgen den Koordinaten im SVG. */
+  const COORDS = {
+    agent: { x: 200, y: 250 },
+    filesystem: { x: 365, y: 227 },
+    terminal: { x: 355, y: 315 },
+    processes: { x: 470, y: 230 },
+    network: { x: 540, y: 275 }
+  };
+
   const COMPONENTS = {
     agent: document.getElementById('comp-agent'),
     filesystem: document.getElementById('comp-fs'),
@@ -113,20 +122,31 @@
   const statSuspiciousEl = document.getElementById('stat-suspicious');
   const eventPathsEl = document.getElementById('eventPaths');
   const sandboxBoxEl = document.getElementById('sandboxBox');
-  
+  const boundaryEl = document.querySelector('.boundary-zone');
+
   let stats = { allowed: 0, denied: 0, suspicious: 0 };
   let currentIndex = 0;
   let isRunning = false;
-  
+  let laufTimer = null;
+  let pfadTimer = null;
+
+  /* Kurze Meldung - kommt aus main.js, damit es nur eine Stelle gibt. */
+  function hinweis(text) {
+    if (typeof window.agorisHinweis === 'function') {
+      window.agorisHinweis(text);
+      return;
+    }
+    if (window.console && console.log) console.log(text);
+  }
+
   function clearHighlights() {
     Object.values(COMPONENTS).forEach(comp => {
       if (comp) comp.classList.remove('highlight', 'allowed', 'denied', 'suspicious');
     });
     if (sandboxBoxEl) sandboxBoxEl.classList.remove('highlight');
-    const boundary = document.querySelector('.boundary-zone');
-    if (boundary) boundary.classList.remove('highlight');
+    if (boundaryEl) boundaryEl.classList.remove('highlight');
   }
-  
+
   function highlightComponent(name, result) {
     clearHighlights();
     if (COMPONENTS[name]) {
@@ -134,166 +154,179 @@
     }
     if (result === 'denied') {
       if (sandboxBoxEl) sandboxBoxEl.classList.add('highlight');
-      const boundary = document.querySelector('.boundary-zone');
-      if (boundary) boundary.classList.add('highlight');
+      if (boundaryEl) boundaryEl.classList.add('highlight');
     }
   }
-  
+
   function drawPath(from, to, result) {
-    // Remove old paths
+    if (!eventPathsEl) return;
     eventPathsEl.innerHTML = '';
-    
-    const coords = {
-      agent: { x: 200, y: 250 },
-      filesystem: { x: 360, y: 235 },
-      terminal: { x: 360, y: 310 },
-      processes: { x: 460, y: 235 },
-      network: { x: 500, y: 260 }
-    };
-    
-    const fromPos = coords[from];
-    const toPos = coords[to];
+
+    const fromPos = COORDS[from];
+    const toPos = COORDS[to];
     if (!fromPos || !toPos) return;
-    
+
     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    // Create curved path
     const midX = (fromPos.x + toPos.x) / 2;
     const midY = Math.min(fromPos.y, toPos.y) - 40;
     path.setAttribute('d', `M ${fromPos.x} ${fromPos.y} Q ${midX} ${midY} ${toPos.x} ${toPos.y}`);
     path.setAttribute('class', `event-path path-${result}`);
     eventPathsEl.appendChild(path);
+
+    if (pfadTimer) clearTimeout(pfadTimer);
+    pfadTimer = setTimeout(() => {
+      if (eventPathsEl) eventPathsEl.innerHTML = '';
+    }, 2000);
   }
-  
+
   function addEventToLog(event) {
-    // Remove empty message
+    if (!eventLogEl) return;
+
     const empty = eventLogEl.querySelector('.log-empty');
     if (empty) empty.remove();
-    
+
     const item = document.createElement('div');
     item.className = `event-item ${event.result}`;
-    item.setAttribute('data-id', event.id);
-    
-    const realBadge = event.real ? ' <span class="badge real" style="font-size:8px;padding:1px 4px;">ECHT</span>' : ' <span class="badge demo" style="font-size:8px;padding:1px 4px;">DEMO</span>';
-    
-    item.innerHTML = `
-      <div><span class="time">${event.time}</span> ${realBadge}</div>
-      <div><span class="type">${event.type}</span> → <span class="target">${event.to.toUpperCase()}</span></div>
-      <div>${event.action}</div>
-      <div class="result">${event.result.toUpperCase()}</div>
-    `;
-    
+    item.setAttribute('data-id', String(event.id));
+
+    const kopf = document.createElement('div');
+    const zeit = document.createElement('span');
+    zeit.className = 'time';
+    zeit.textContent = event.time;
+    kopf.appendChild(zeit);
+
+    const marke = document.createElement('span');
+    marke.className = `badge ${event.real ? 'real' : 'demo'}`;
+    marke.style.fontSize = '8px';
+    marke.style.padding = '1px 4px';
+    marke.textContent = event.real ? 'ECHT' : 'DEMO';
+    kopf.appendChild(document.createTextNode(' '));
+    kopf.appendChild(marke);
+
+    const zweit = document.createElement('div');
+    const typ = document.createElement('span');
+    typ.className = 'type';
+    typ.textContent = event.type;
+    zweit.appendChild(typ);
+    zweit.appendChild(document.createTextNode(' → '));
+    const ziel = document.createElement('span');
+    ziel.className = 'target';
+    ziel.textContent = String(event.to).toUpperCase();
+    zweit.appendChild(ziel);
+
+    const aktion = document.createElement('div');
+    aktion.textContent = event.action;
+
+    const ergebnis = document.createElement('div');
+    ergebnis.className = 'result';
+    ergebnis.textContent = String(event.result).toUpperCase();
+
+    item.appendChild(kopf);
+    item.appendChild(zweit);
+    item.appendChild(aktion);
+    item.appendChild(ergebnis);
+
     item.addEventListener('click', () => {
-      eventDetailEl.style.display = 'block';
-      eventDetailTextEl.textContent = event.detail;
-      // Highlight all items
-      eventLogEl.querySelectorAll('.event-item').forEach(i => i.style.opacity = '0.5');
+      if (eventDetailEl) eventDetailEl.style.display = 'block';
+      if (eventDetailTextEl) eventDetailTextEl.textContent = event.detail;
+      eventLogEl.querySelectorAll('.event-item').forEach(i => { i.style.opacity = '0.5'; });
       item.style.opacity = '1';
       item.style.background = 'rgba(53, 224, 232, 0.12)';
     });
-    
+
     eventLogEl.insertBefore(item, eventLogEl.firstChild);
   }
-  
+
   function updateStats(result) {
     if (result === 'allowed') stats.allowed++;
     else if (result === 'denied') stats.denied++;
     else if (result === 'suspicious') stats.suspicious++;
-    
-    statAllowedEl.textContent = stats.allowed;
-    statDeniedEl.textContent = stats.denied;
-    statSuspiciousEl.textContent = stats.suspicious;
+
+    if (statAllowedEl) statAllowedEl.textContent = String(stats.allowed);
+    if (statDeniedEl) statDeniedEl.textContent = String(stats.denied);
+    if (statSuspiciousEl) statSuspiciousEl.textContent = String(stats.suspicious);
   }
-  
-  function runNextEvent() {
-    if (currentIndex >= DEMO_EVENTS.length) {
-      if (isRunning) {
-        alert('Demo abgeschlossen. Alle ' + DEMO_EVENTS.length + ' Ereignisse durchlaufen.');
-        isRunning = false;
-      }
-      return;
-    }
-    
-    const event = DEMO_EVENTS[currentIndex++];
-    
+
+  function zeigeEreignis(event) {
     highlightComponent(event.to, event.result);
     drawPath(event.from, event.to, event.result);
     addEventToLog(event);
     updateStats(event.result);
-    
-    // Auto-remove path after animation
-    setTimeout(() => {
-      eventPathsEl.innerHTML = '';
-    }, 2000);
   }
-  
+
+  function plan(delay) {
+    if (laufTimer) clearTimeout(laufTimer);
+    laufTimer = setTimeout(runNextEvent, delay);
+  }
+
+  function runNextEvent() {
+    if (currentIndex >= DEMO_EVENTS.length) {
+      if (isRunning) {
+        isRunning = false;
+        hinweis(`Demo abgeschlossen. Alle ${DEMO_EVENTS.length} Ereignisse durchlaufen.`);
+      } else {
+        hinweis(`Alle ${DEMO_EVENTS.length} Demo-Ereignisse sind bereits durchlaufen.`);
+      }
+      return;
+    }
+
+    zeigeEreignis(DEMO_EVENTS[currentIndex++]);
+
+    if (isRunning) plan(1200);
+  }
+
   function runAllDemo() {
     if (isRunning) return;
+    resetDemo(true);
     isRunning = true;
-    clearHighlights();
-    eventPathsEl.innerHTML = '';
-    eventLogEl.innerHTML = '<div class="log-empty">Starte Demo...</div>';
-    eventDetailEl.style.display = 'none';
-    stats = { allowed: 0, denied: 0, suspicious: 0 };
-    statAllowedEl.textContent = '0';
-    statDeniedEl.textContent = '0';
-    statSuspiciousEl.textContent = '0';
-    currentIndex = 0;
-    
-    DEMO_EVENTS.forEach((event, idx) => {
-      setTimeout(() => {
-        highlightComponent(event.to, event.result);
-        drawPath(event.from, event.to, event.result);
-        addEventToLog(event);
-        updateStats(event.result);
-        setTimeout(() => {
-          eventPathsEl.innerHTML = '';
-        }, 2000);
-      }, idx * 1200);
-    });
-    
-    setTimeout(() => {
-      isRunning = false;
-    }, DEMO_EVENTS.length * 1200 + 500);
+    plan(200);
   }
-  
-  function resetDemo() {
+
+  function resetDemo(leise) {
     isRunning = false;
-    clearHighlights();
-    eventPathsEl.innerHTML = '';
-    eventLogEl.innerHTML = '<div class="log-empty">Noch keine Ereignisse. Starte Demo oder warte auf echte Ereignisse.</div>';
-    eventDetailEl.style.display = 'none';
-    stats = { allowed: 0, denied: 0, suspicious: 0 };
-    statAllowedEl.textContent = '0';
-    statDeniedEl.textContent = '0';
-    statSuspiciousEl.textContent = '0';
     currentIndex = 0;
+    if (laufTimer) { clearTimeout(laufTimer); laufTimer = null; }
+    if (pfadTimer) { clearTimeout(pfadTimer); pfadTimer = null; }
+    clearHighlights();
+    if (eventPathsEl) eventPathsEl.innerHTML = '';
+    if (eventLogEl) {
+      eventLogEl.innerHTML = '<div class="log-empty">Noch keine Ereignisse. Starte Demo oder warte auf echte Ereignisse.</div>';
+    }
+    if (eventDetailEl) eventDetailEl.style.display = 'none';
+    stats = { allowed: 0, denied: 0, suspicious: 0 };
+    if (statAllowedEl) statAllowedEl.textContent = '0';
+    if (statDeniedEl) statDeniedEl.textContent = '0';
+    if (statSuspiciousEl) statSuspiciousEl.textContent = '0';
+    if (!leise) hinweis('Zurückgesetzt.');
   }
-  
-  // Event Listeners
+
+  /* Event Listeners */
   const demoRunBtn = document.getElementById('demo-run');
   const demoClearBtn = document.getElementById('demo-clear');
   const demoStepBtn = document.getElementById('demo-step');
-  
+
   if (demoRunBtn) demoRunBtn.addEventListener('click', runAllDemo);
-  if (demoClearBtn) demoClearBtn.addEventListener('click', resetDemo);
-  if (demoStepBtn) demoStepBtn.addEventListener('click', runNextEvent);
-  
-  // Try to load real events from audit logs if available
-  async function tryLoadRealEvents() {
-    try {
-      // Try to fetch from common locations - in browser context this may not work
-      // but structure is prepared for integration
-      const badge = document.getElementById('sandbox-real-badge');
-      if (badge) {
-        // Check if we can detect real events
-        // For now, just show demo is working
-      }
-    } catch (e) {
-      // Ignore
-    }
+  if (demoClearBtn) demoClearBtn.addEventListener('click', function () { resetDemo(false); });
+  if (demoStepBtn) demoStepBtn.addEventListener('click', function () {
+    if (isRunning) return;
+    runNextEvent();
+  });
+
+  /* Echte Ereignisse: kommen sie aus dem Audit-Log eines Laufes. Wer die
+     Seite in eine eigene Oberflaeche einbettet, kann sie als Array mit
+     'time', 'type', 'from', 'to', 'action', 'result', 'detail' und
+     'real: true' uebergeben - dann werden sie als ECHT markiert. */
+  function ladeEchteEreignisse(ereignisse) {
+    if (!Array.isArray(ereignisse) || !ereignisse.length) return;
+    const badge = document.getElementById('sandbox-real-badge');
+    if (badge) badge.style.display = 'inline-block';
+    ereignisse.forEach(function (ereignis) {
+      zeigeEreignis(Object.assign({ real: true, id: 'r' + ereignisse.indexOf(ereignis) }, ereignis));
+    });
+    hinweis(`${ereignisse.length} echte Ereignisse geladen.`);
   }
-  
-  tryLoadRealEvents();
-  
+
+  if (window.AGORIS_EREIGNISSE) ladeEchteEreignisse(window.AGORIS_EREIGNISSE);
+
   console.log('AGORIS Sandbox Visualization loaded - Demo mode ready');
 })();
