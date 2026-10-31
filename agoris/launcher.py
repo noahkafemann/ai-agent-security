@@ -75,6 +75,7 @@ def run_agent(
     model_provider: Optional[str] = None,
     wall_timeout: Optional[float] = None,
     quiet: bool = False,
+    custom_agent: Optional[str] = None,
 ) -> LaunchResult:
     """Startet genau einen Agentenlauf und liefert das Ergebnis."""
     result = LaunchResult()
@@ -91,6 +92,15 @@ def run_agent(
     if proxy_active:
         proxy.start()
 
+    # Prepare custom agent if provided (copy to package_copy before fork)
+    custom_agent_name = None
+    if custom_agent:
+        import shutil
+        custom_agent_name = os.path.basename(custom_agent)
+        host_agent_path = os.path.join(package_copy, custom_agent_name)
+        shutil.copy2(custom_agent, host_agent_path)
+        os.chmod(host_agent_path, 0o755)
+
     config = {
         "op": "config",
         "task": task,
@@ -98,9 +108,10 @@ def run_agent(
         "proxy_socket": "/run/agoris/proxy.sock" if proxy_active else None,
         "socket_dir": "/run/agoris" if proxy_active else None,
         "host_pid": os.getpid(),
+        "custom_agent": custom_agent_name,
     }
 
-    audit.record("run_start", actor="host", task=task, policy=policy.name, provider=provider)
+    audit.record("run_start", actor="host", task=task, policy=policy.name, provider=provider, custom_agent=custom_agent_name)
     started = time.time()
 
     # Zwei Pipes statt einer: eine je Richtung. Der Agent bekommt seine
@@ -358,7 +369,16 @@ def _child_agent(
         channel.send({"event": "jail_report", "report": report})
         _scoped_environment()
         os.chdir("/work")
-        os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "/opt/agoris/runtime/worker.py"])
+        
+        custom_agent_name = config.get("custom_agent")
+        if custom_agent_name:
+            # Custom agent: already copied to package_copy (/opt in jail)
+            jail_agent_path = f"/opt/{custom_agent_name}"
+            # Execute the custom agent
+            os.execv(jail_agent_path, [jail_agent_path])
+        else:
+            # Built-in worker
+            os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "/opt/agoris/runtime/worker.py"])
     except OSError as exc:
         channel.send({"event": "fatal", "error": f"Start des Agenten fehlgeschlagen: {exc}"})
         return 71

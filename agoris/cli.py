@@ -212,7 +212,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     source=f"{policy.source} + {args.file}",
                 )
             except ValueError as exc:
-                print(style.error(f"Ergänzung abgelehnt: {exc}"), file=sys.stderr)
+                print(style.error(f"Ergaenzung abgelehnt: {exc}"), file=sys.stderr)
                 return 2
 
     run_dir = _new_run_dir(policy.name)
@@ -220,6 +220,8 @@ def cmd_run(args: argparse.Namespace) -> int:
     print(style.info(f"Policy   {policy.name} v{policy.version}"))
     print(style.info(f"Aufgabe  {aufgabe[:120]}{'...' if len(aufgabe) > 120 else ''}"))
     print(style.info(f"Ordner   {run_dir}"))
+    if args.agent:
+        print(style.info(f"Agent    {args.agent}"))
     print(style.dim_text("-" * 64))
 
     audit = AuditLog(os.path.join(run_dir, "audit.jsonl"), echo=True)
@@ -230,6 +232,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         audit=audit,
         model_provider=args.model,
         wall_timeout=args.timeout,
+        custom_agent=args.agent,
     )
     audit.close()
     verification = audit.verify()
@@ -589,6 +592,7 @@ def build_parser() -> argparse.ArgumentParser:
     lauf.add_argument("-f", "--file", help="zusaetzliche Policy-Felder aus JSON")
     lauf.add_argument("-m", "--model", help="Modellanbieter (simulated, echo, anthropic)")
     lauf.add_argument("--timeout", type=float, help="Wanduhr-Stopp in Sekunden")
+    lauf.add_argument("--agent", help="Pfad zu einem benutzerdefinierten Agenten (Executable/Skript), der statt des eingebauten Workers in der Sandbox laeuft")
     lauf.set_defaults(func=cmd_run)
 
     blick = sub.add_parser("inspect", help="Innenansicht des Gefaengnisses zeigen")

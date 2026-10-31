@@ -66,6 +66,7 @@ def show_menu():
     print(style.info("8. ") + style.success("Audit-Hashkette prüfen (verify)"))
     print(style.info("9. ") + style.success("Sandbox-Performance messen (benchmark)"))
     print(style.info("10. ") + style.success("Benutzerdefinierten Agenten ausführen (Python-Datei in Sandbox)"))
+    print(style.info("11. ") + style.success("Eigenen Agenten testen (lokaler Agent wie OpenCode/Bionic)"))
     print(style.info("0. ") + style.error("Beenden"))
     print()
 
@@ -145,6 +146,29 @@ def run_custom_agent():
     print(style.info(f"\nAudit-Log gespeichert unter: {audit_path}"))
 
 
+def run_external_agent():
+    """Führt einen externen Agenten (z.B. OpenCode, Bionic) in der Sandbox aus."""
+    agent_path = frage(style.info("Pfad zum Agenten-Executable/Skript: "))
+    if not agent_path:
+        print(style.error("Kein Pfad angegeben."))
+        return
+    if not os.path.isfile(agent_path):
+        print(style.error(f"Datei nicht gefunden: {agent_path}"))
+        return
+    if not os.access(agent_path, os.X_OK):
+        print(style.warning(f"Datei ist nicht ausführbar. Versuche trotzdem..."))
+
+    task = frage(style.info("Aufgabe (oder leer für Standard): "))
+    if not task:
+        task = "Lies 'aufgabe.md' und loese die Aufgabe."
+    policy = frage(style.info("Policy (default: minimal): "), "minimal")
+    if not policy_vorhanden(policy):
+        return
+
+    args = ["run", task, "-p", policy, "--agent", agent_path]
+    run_command(args)
+
+
 def main():
     while True:
         print_banner()
@@ -205,6 +229,8 @@ def main():
             run_command(args)
         elif choice == "10":
             run_custom_agent()
+        elif choice == "11":
+            run_external_agent()
         else:
             print(style.warning("Ungültige Auswahl. Bitte erneut versuchen."))
         frage(style.dim_text("\nDrücke Enter, um zum Menü zurückzukehren..."))
