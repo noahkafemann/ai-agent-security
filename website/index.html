@@ -28,15 +28,14 @@
       <li><a href="#schichten">Schichten</a></li>
       <li><a href="#nachweis">Nachweis</a></li>
       <li><a href="#agenten">Agenten</a></li>
+      <li><a href="#custom-agenten">Eigene Agenten</a></li>
       <li><a href="#start">Start</a></li>
       <li><a href="#plattformen">Plattformen</a></li>
-      <li><a href="#install">Windows Install</a></li>
       <li><a href="#blick">Innenansicht</a></li>
       <li><a href="#benchmark">Benchmark</a></li>
       <li><a href="#grenzen">Grenzen</a></li>
       <li><a href="#sandbox-vis">Sandbox-Vis</a></li>
       <li><a href="#interaktiv">Live Demo</a></li>
-      <li><a href="#installation-guide">Install-Guide</a></li>
       <li><a href="https://github.com/noahkafemann/ai-agent-security" class="cta">GitHub</a></li>
       <li><button type="button" id="theme-toggle" class="theme-toggle" aria-label="Design umschalten" title="Hell / Dunkel umschalten">🌓</button></li>
     </ul>
@@ -61,10 +60,11 @@
       Modell-Provider (wie er antwortet). AGORIS lässt sich damit testen, ob die
       Isolation bei <i>jedem</i> Agenten hält — nicht nur bei einem.
     </p>
-    <div class="cta-row">
-      <a class="btn primary" href="#install">Unter Windows installieren</a>
+<div class="cta-row">
+      <a class="btn primary" href="#start">Loslegen</a>
       <a class="btn" href="#nachweis">14 Ausbruchversuche</a>
       <a class="btn" href="#agenten">Agenten testen</a>
+      <a class="btn" href="#custom-agenten">Eigene Agenten</a>
       <a class="btn" href="#interaktiv">Live-Demo</a>
     </div>
     <details class="peek" open>
@@ -340,62 +340,93 @@ ALLE 9 TESTS BESTANDEN</pre>
         <p>Prüft doctor, inspect, Agentenlauf mit <code>simulated</code> und <code>echo</code>-Provider, und die volle Angriffsbatterie — in einem Durchlauf.</p>
       </li>
     </ol>
-    <p class="note">Nur Standardbibliothek. Python ≥ 3.8. Kein Docker, kein pip, kein gcc.</p>
+<p class="note">Nur Standardbibliothek. Python ≥ 3.8. Kein Docker, kein pip, kein gcc.</p>
     <p class="note">Installation: <code>git clone https://github.com/noahkafemann/ai-agent-security.git</code> — mehr braucht nichts.</p>
   </section>
 
-  <section id="install" class="platform install">
-    <p class="eyebrow">Windows — einfache Installation</p>
-    <h2>AGORIS unter Windows mit Docker Desktop</h2>
+  <section id="custom-agenten" class="custom-agents">
+    <p class="eyebrow">Eigene Agenten</p>
+    <h2>Lokale KI-Agenten in der AGORIS-Sandbox</h2>
     <p class="sub">
-      AGORIS nutzt Linux-Kernel-Funktionen. Unter Windows läuft es deshalb
-      am besten in Docker Desktop. Die Skripte unten behandeln auch die
-      Windows-Meldung, dass der Herausgeber von Befehlsskripten nicht
-      verifiziert werden kann.
+      AGORIS ist nicht auf die eingebauten Provider (<code>simulated</code>, <code>echo</code>, <code>anthropic</code>) beschränkt.
+      Jedes lokale Tool, das über stdin/stdout kommuniziert, kann als Agent in der Sandbox laufen —
+      z.&nbsp;B. <b>OpenCode</b>, <b>Bionic</b>, <b>Aider</b>, <b>Claude Code</b> oder eigene Skripte.
     </p>
 
-    <div class="install-grid">
-      <article class="install-card">
-        <h3>1. Docker Desktop installieren</h3>
-        <ol>
-          <li>Lade Docker Desktop für Windows herunter:
-            <a href="https://www.docker.com/products/docker-desktop" target="_blank" rel="noopener">docker.com/products/docker-desktop</a>
-          </li>
-          <li>Installiere und starte den Rechner neu (falls gefragt).</li>
-          <li>Aktiviere WSL2 als Backend: Docker Desktop → Settings → Resources → WSL Integration.</li>
-          <li>Warte, bis das Wal-Symbol grün leuchtet.</li>
-        </ol>
+    <div class="agent-grid">
+      <article class="agent-card">
+        <h3>Protokoll</h3>
+        <p>Der Agent kommuniziert über <b>JSON Lines</b> auf stdin/stdout:</p>
+        <pre><code>{"op":"config","task":"...","policy":{...}}
+{"event":"ready","tools":["read_file","write_file",...]}
+{"event":"llm_request","id":"s1","messages":[...],"tools":[...]}
+// Wirt antwortet mit llm_result
+{"event":"tool","call":{"tool":"read_file","ok":true,...}}
+{"event":"result","answer":"...","stopped":"finish","steps":3}</code></pre>
       </article>
+      <article class="agent-card">
+        <h3>CLI</h3>
+        <p>Über die neue <code>--agent</code> Option:</p>
+        <pre><code># Eigenen Agenten ausführen
+python3 agoris.py run "Aufgabe" -p minimal --agent ./mein-agent
 
-      <article class="install-card">
-        <h3>2. Skript entsperren (wenn Windows blockiert)</h3>
-        <p>Wenn Windows meldet: „Der Herausgeber kann nicht verifiziert werden“:</p>
-        <pre><span class="c-p">$</span> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser</pre>
-        <p>Oder starte mit Umgehung:</p>
-        <pre><span class="c-p">$</span> powershell -ExecutionPolicy Bypass -File install.ps1</pre>
+# Oder über das interaktive Menü
+python3 menu.py
+# Option 11: "Eigenen Agenten testen"</code></pre>
       </article>
+      <article class="agent-card">
+        <h3>Beispiel: OpenCode</h3>
+        <p>OpenCode als Binary in der Sandbox:</p>
+        <pre><code># 1. OpenCode herunterladen/kompilieren
+# 2. In der Sandbox ausführen
+python3 agoris.py run "Lies aufgabe.md und löse sie" \
+  -p research --agent /pfad/zu/opencode</code></pre>
+      </article>
+    </div>
 
-      <article class="install-card">
-        <h3>3. AGORIS starten</h3>
-        <pre><span class="c-p">PS&gt;</span> .\install.ps1 doctor</pre>
-        <pre><span class="c-p">PS&gt;</span> .\install.ps1 test</pre>
-        <pre><span class="c-p">PS&gt;</span> .\install.ps1 run "Hallo Welt" -p minimal</pre>
-        <p class="note">Oder in cmd.exe: <code>install.bat doctor</code></p>
-      </article>
+    <div class="code-example">
+      <h3>Minimales Beispiel-Agent-Skript</h3>
+      <p>Ein Python-Skript, das das AGORIS-Protokoll spricht (<code>example_custom_agent.py</code> im Repo):</p>
+      <pre><code>#!/usr/bin/env python3
+import json, sys
 
-      <article class="install-card">
-        <h3>4. Oder mit Docker Compose</h3>
-        <pre><span class="c-p">$</span> docker-compose up</pre>
-        <pre><span class="c-p">$</span> docker-compose run --rm agoris doctor</pre>
-        <p class="note">docker-compose.yml ist bereits im Repository enthalten.</p>
-      </article>
+def main():
+    channel = Channel()  # stdin/stdout JSON Lines
+    config = channel.recv()  # {"op":"config","task":...,"policy":{...}}
+    
+    # 1. Ready senden
+    channel.send({"event":"ready","pid":os.getpid(),"tools":["read_file","write_file","finish"]})
+    
+    # 2. Loop: llm_request → llm_result → tool → tool result
+    while True:
+        req = channel.wait_for("llm_request")
+        # Wirt antwortet mit Modell-Entscheidung
+        result = channel.wait_for("llm_result")
+        decision = parse(result["response"]["text"])
+        
+        # Tool ausführen
+        tool_result = execute_tool(decision["tool"], decision["args"])
+        channel.send({"event":"tool","call":tool_result})
+        
+        if decision["tool"] == "finish":
+            break
+    
+    # 3. Ergebnis
+    channel.send({"event":"result","answer":tool_result["answer"],"stopped":"finish"})
 
-      <article class="install-card">
-        <h3>5. Ohne Installation (Browser)</h3>
-        <p>GitHub Codespaces — keine lokale Installation nötig:</p>
-        <pre><span class="c-p">$</span> Öffne das Repository in github.dev</pre>
-        <pre><span class="c-p">$</span> Code → Open with Codespaces</pre>
-      </article>
+if __name__ == "__main__":
+    main()</code></pre>
+    </div>
+
+    <div class="note-box">
+      <h4>Wichtige Hinweise</h4>
+      <ul>
+        <li>Der Agent <b>muss ausführbar</b> sein (<code>chmod +x agent</code>)</li>
+        <li>Er läuft <b>vollständig in der Sandbox</b> — keine Netzwerkverbindung, keine Host-Dateien</li>
+        <li>API-Keys bleiben im <b>Wirtprozess</b> — der Agent erreicht sie nie</li>
+        <li>Das Audit-Log protokolliert <b>jeden Tool-Aufruf</b> des eigenen Agenten</li>
+        <li>Policy <code>research</code> empfohlen (Netz über Proxy, mehr Tools)</li>
+      </ul>
     </div>
   </section>
 
@@ -645,25 +676,8 @@ Overhead:                  10.3%</pre>
       Deshalb steht in jedem Bericht pro Schicht <code>aktiv</code> oder
       <code>inaktiv</code> — mit Grund.
     </p>
-  </section>
+</section>
 
-
-  <section id="installation-guide" class="os-detector">
-    <p class="eyebrow">Interaktiver Installationsguide</p>
-    <h2>Finden Sie Ihren Weg zur Installation</h2>
-    <p class="sub">Wählen Sie Ihr Betriebssystem, um eine maßgeschneiderte Anleitung zu erhalten.</p>
-
-    <div class="os-selector">
-      <button type="button" class="os-btn" data-os="windows">🪟 Windows</button>
-      <button type="button" class="os-btn" data-os="macos">🍎 macOS</button>
-      <button type="button" class="os-btn" data-os="linux">🐧 Linux</button>
-      <button type="button" class="os-btn" data-os="codespaces">☁️ GitHub Codespaces</button>
-    </div>
-
-    <div id="os-instructions" class="os-instructions">
-      <div class="os-placeholder">Wählen Sie ein Betriebssystem oben aus.</div>
-    </div>
-  </section>
 
 </main>
 

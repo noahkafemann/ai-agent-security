@@ -663,5 +663,4 @@
   sichern(baueDesign, "Designumschalter");
   sichern(baueKopfzeile, "Kopfzeile");
   sichern(baueDemo, "Live-Demo");
-  sichern(baueAnleitung, "Installationsguide");
 })();
