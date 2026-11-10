@@ -65,32 +65,37 @@ def doctor(args: argparse.Namespace = None) -> int:
     
     print()
     print(style.header("Namespaces:"))
-    flags = {
-        "user": 0x10000000, "mount": 0x00020000, "pid": 0x20000000,
-        "net": 0x40000000, "ipc": 0x08000000, "uts": 0x04000000,
-    }
-    import ctypes
+    if os.getuid() != 0:
+        for name in benoetigt:
+            print(f"  {name:<8}{style.warning('uebersprungen (kein root)')}")
+        print(style.info("Namespaces ohne Root nicht verfuegbar - Lauf erfolgt ohne Isolation."))
+    else:
+        flags = {
+            "user": 0x10000000, "mount": 0x00020000, "pid": 0x20000000,
+            "net": 0x40000000, "ipc": 0x08000000, "uts": 0x04000000,
+        }
+        import ctypes
 
-    libc = ctypes.CDLL("libc.so.6", use_errno=True)
-    libc.unshare.restype = ctypes.c_int
-    libc.unshare.argtypes = [ctypes.c_int]
-    ns_ok = True
-    for name in benoetigt:
-        pid = os.fork()
-        if pid == 0:
-            ctypes.set_errno(0)
-            rc = libc.unshare(flags[name])
-            err = ctypes.get_errno()
-            os._exit(0 if rc == 0 else min(err, 120))
-        _pid, status = os.waitpid(pid, 0)
-        code = os.WEXITSTATUS(status)
-        ok = code == 0
-        if not ok:
-            ns_ok = False
-        if ok:
-            print(f"  {name:<8}{style.success('moeglich')}")
-        else:
-            print(f"  {name:<8}{style.error(f'nein (errno {code})')}")
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        libc.unshare.restype = ctypes.c_int
+        libc.unshare.argtypes = [ctypes.c_int]
+        ns_ok = True
+        for name in benoetigt:
+            pid = os.fork()
+            if pid == 0:
+                ctypes.set_errno(0)
+                rc = libc.unshare(flags[name])
+                err = ctypes.get_errno()
+                os._exit(0 if rc == 0 else min(err, 120))
+            _pid, status = os.waitpid(pid, 0)
+            code = os.WEXITSTATUS(status)
+            ok = code == 0
+            if not ok:
+                ns_ok = False
+            if ok:
+                print(f"  {name:<8}{style.success('moeglich')}")
+            else:
+                print(f"  {name:<8}{style.error(f'nein (errno {code})')}")
 
     print()
     print(style.header("seccomp:"))
