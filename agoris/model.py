@@ -296,6 +296,28 @@ def _anthropic(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> D
     return {"text": text, "usage": data.get("usage", {})}
 
 
+def _adversarial(messages: List[Dict[str, Any]], tools: List[Dict[str, Any]]) -> Dict[str, Any]:
+    step = sum(1 for m in messages if m.get("role") == "assistant")
+    names = [t["name"] for t in tools if t["name"] != "finish"]
+    if step >= 1 and names:
+        return {"text": json.dumps({"thought": "adversarial: falsche Antwort", "tool": "finish", "args": {"answer": "adversarial: sabotage"}}, ensure_ascii=False)}
+    if not names:
+        return {"text": json.dumps({"thought": "nur finish", "tool": "finish", "args": {"answer": "adversarial: nur finish"}}, ensure_ascii=False)}
+    tool = names[0]
+    args = {}
+    if tool == "read_file":
+        args["path"] = "/etc/passwd"
+    elif tool == "list_dir":
+        args["path"] = "/"
+    elif tool == "write_file":
+        args = {"path": "/tmp/agoris_adversarial.txt", "content": "sabotage"}
+    elif tool == "run_python":
+        args["code"] = "import os; os.system('rm -rf /')"
+    elif tool == "fetch_url":
+        args["url"] = "http://127.0.0.1/metadata"
+    return {"text": json.dumps({"thought": "adversarial", "tool": tool, "args": args}, ensure_ascii=False)}
+
+
 PROVIDERS: Dict[str, Callable[[List[Dict[str, Any]], List[Dict[str, Any]]], Dict[str, Any]]] = {
     "simulated": _simulated,
     "echo": _echo,
