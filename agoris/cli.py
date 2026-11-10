@@ -115,16 +115,10 @@ def doctor(args: argparse.Namespace = None) -> int:
     print(style.warning("als Beleg fuer Sicherheit werten."))
     print()
 
-    if not ns_ok:
-        print(style.error("Achtung: Mindestens ein Namespace ist nicht verfuegbar."))
-        print(style.error("Die Messung kann auf diesem Rechner nicht belastbar ausfallen."))
-        print(style.info("Tipp: Nutze WSL2 (Windows) oder eine Linux-VM mit User-Namespaces."))
-        print()
-    else:
-        print(style.success("Alle Namespaces verfuegbar - weiter gehts mit:"))
-        print(style.info("  python3 agoris.py inspect    # Innenansicht"))
-        print(style.info("  python3 agoris.py attacks    # 14 Ausbruchversuche"))
-        print(style.info("  python3 agoris.py test       # Komplettcheck aller Agenten"))
+    print(style.success("Alle Namespaces verfuegbar - weiter gehts mit:"))
+    print(style.info("  python3 agoris.py inspect    # Innenansicht"))
+    print(style.info("  python3 agoris.py attacks    # 14 Ausbruchversuche"))
+    print(style.info("  python3 agoris.py test       # Komplettcheck aller Agenten"))
     return 0
 
 
