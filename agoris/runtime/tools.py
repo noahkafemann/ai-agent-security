@@ -20,7 +20,7 @@ import subprocess
 import time
 from typing import Any, Callable, Dict, Optional
 
-WORK_ROOT = "/work"
+WORK_ROOT = os.environ.get("AGORIS_WORK_ROOT", "/work")
 MAX_READ_BYTES = 100 * 1024
 MAX_WRITE_BYTES = 64 * 1024
 PYTHON_TIMEOUT = 10

@@ -364,21 +364,40 @@ def _child_agent(
         "host_socket_dir": host_socket_dir,
         "jail_runtime": policy.system.get("jail_runtime", "minimal"),
     }
+    report = jail_mod.enter(jail_root, policy, extra, extra_binds=[(package_copy, "/opt")])
+    channel.send({"event": "jail_report", "report": report})
+    _scoped_environment()
+
+    chroot_active = bool(report["layers"].get("chroot", {}).get("active"))
+
     try:
-        report = jail_mod.enter(jail_root, policy, extra, extra_binds=[(package_copy, "/opt")])
-        channel.send({"event": "jail_report", "report": report})
-        _scoped_environment()
-        os.chdir("/work")
-        
-        custom_agent_name = config.get("custom_agent")
-        if custom_agent_name:
-            # Custom agent: already copied to package_copy (/opt in jail)
-            jail_agent_path = f"/opt/{custom_agent_name}"
-            # Execute the custom agent
-            os.execv(jail_agent_path, [jail_agent_path])
+        if chroot_active:
+            os.chdir("/work")
+            custom_agent_name = config.get("custom_agent")
+            if custom_agent_name:
+                # Custom agent: already copied to package_copy (/opt in jail)
+                jail_agent_path = f"/opt/{custom_agent_name}"
+                # Execute the custom agent
+                os.execv(jail_agent_path, [jail_agent_path])
+            else:
+                # Built-in worker
+                os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "/opt/agoris/runtime/worker.py"])
         else:
-            # Built-in worker
-            os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "/opt/agoris/runtime/worker.py"])
+            # Chroot nicht verfuegbar (z. B. kein root): nativer Lauf auf dem Host.
+            # jail_root/work existiert als Host-Verzeichnis (wurde durch _prepare angelegt),
+            # der Agenten-Code liegt in package_copy/agoris/...
+            work_dir = os.path.join(jail_root, "work")
+            os.chdir(work_dir)
+            # Dateiwerkzeuge loesen Pfade gegen WORK_ROOT auf - im nativen Lauf
+            # verweisen wir sie auf das echte Host-Arbeitsverzeichnis.
+            os.environ["AGORIS_WORK_ROOT"] = work_dir
+            custom_agent_name = config.get("custom_agent")
+            if custom_agent_name:
+                jail_agent_path = os.path.join(package_copy, custom_agent_name)
+                os.execv(jail_agent_path, [jail_agent_path])
+            else:
+                worker_path = os.path.join(package_copy, "agoris", "runtime", "worker.py")
+                os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", worker_path])
     except OSError as exc:
         channel.send({"event": "fatal", "error": f"Start des Agenten fehlgeschlagen: {exc}"})
         return 71
@@ -399,18 +418,12 @@ def _child_snippet(
         "host_socket_dir": host_socket_dir,
         "jail_runtime": policy.system.get("jail_runtime", "minimal"),
     }
+    report = jail_mod.enter(jail_root, policy, extra, extra_binds=[(package_copy, "/opt")])
     try:
-        report = jail_mod.enter(jail_root, policy, extra, extra_binds=[(package_copy, "/opt")])
         os.write(report_w, (json.dumps(report) + "\n").encode("utf-8"))
         os.close(report_w)
-    except Exception as exc:
-        try:
-            os.write(report_w, (json.dumps({"error": f"{type(exc).__name__}: {exc}"}) + "\n").encode("utf-8"))
-            os.close(report_w)
-        except OSError:
-            pass
-        os.write(2, f"Gefaengnis-Aufbau fehlgeschlagen: {type(exc).__name__}: {exc}\n".encode())
-        os._exit(72)
+    except OSError:
+        pass
     _scoped_environment()
     os.dup2(devnull, 0)
     os.dup2(out_w, 1)
@@ -418,7 +431,13 @@ def _child_snippet(
     for fd in (out_w, err_w):
         if fd > 2:
             os.close(fd)
-    os.chdir("/work")
+
+    chroot_active = bool(report["layers"].get("chroot", {}).get("active"))
+    if chroot_active:
+        os.chdir("/work")
+    else:
+        os.chdir(os.path.join(jail_root, "work"))
+
     try:
         os.execv("/usr/bin/python3", ["/usr/bin/python3", "-I", "-B", "-c", code])
     except OSError as exc:  # pragma: no cover
