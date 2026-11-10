@@ -329,7 +329,17 @@ def setup_filesystem(
     root_uid = UNPRIVILEGED_UID if wide_ids else 0
     root_gid = UNPRIVILEGED_GID if wide_ids else 0
 
-    mount("none", "/", "none", MS_REC | MS_PRIVATE)  # nichts mehr nach aussen propagieren
+    # Mount benoetigt Privilegien (root / CAP_SYS_ADMIN). Als Nicht-Root
+    # schlaegt der erste Mount sofort mit EPERM fehl - dann fahren wir ohne
+    # Dateisystem-Isolation fort (nativer Lauf auf dem Host).
+    try:
+        mount("none", "/", "none", MS_REC | MS_PRIVATE)
+    except OSError as exc:
+        return {
+            "active": False,
+            "reason": f"Mount nicht verfuegbar: {os.strerror(exc.errno)} - Lauf ohne Isolation",
+            "events": [],
+        }
     events.append("/ privat (MS_REC|MS_PRIVATE)")
 
     os.makedirs(jail_root, exist_ok=True)
@@ -507,11 +517,20 @@ def drop_capabilities() -> Dict[str, Any]:
     }
 
 
-def enter_chroot(jail_root: str) -> None:
-    if libc.chroot(jail_root.encode()) != 0:
-        err = _errno()
-        raise OSError(err, f"chroot({jail_root}): {os.strerror(err)}")
-    os.chdir("/work")
+def enter_chroot(jail_root: str) -> Dict[str, Any]:
+    """Chroot in das Gefaengnis.
+
+    Gibt bei fehlenden Rechten (kein root) einen inaktiven Bericht zurueck,
+    statt abzubrechen - der Lauf kann dann nativ auf dem Host weiterlaufen.
+    """
+    try:
+        if libc.chroot(jail_root.encode()) != 0:
+            err = _errno()
+            raise OSError(err, f"chroot({jail_root}): {os.strerror(err)}")
+        os.chdir("/work")
+        return {"active": True, "root": jail_root}
+    except OSError as exc:
+        return {"active": False, "reason": f"chroot nicht verfuegbar: {os.strerror(exc.errno)}", "root": jail_root}
 
 
 # ----------------------------------------------------------------- Gesamtablauf
@@ -567,8 +586,7 @@ def enter(
     if "net" in namespaces:
         report["layers"]["loopback"] = bring_up_loopback()
 
-    enter_chroot(jail_root)
-    report["layers"]["chroot"] = {"active": True, "root": jail_root}
+    report["layers"]["chroot"] = enter_chroot(jail_root)
 
     report["layers"]["privileges"] = drop_privileges(
         wide_ids, bool(system.get("no_new_privs", True))
